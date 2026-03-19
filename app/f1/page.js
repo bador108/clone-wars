@@ -39,9 +39,9 @@ const RACES = [
 
 // Sketchfab free F1 models (veřejné, free licence)
 const CARS_3D = [
-  { id: 'generic',  name: 'F1 Race Car',    sub: 'Generický model 2024',  color: '#e10600', sfId: '084b2295407248cb8f6a856b7aeab004' },
-  { id: 'concept26',name: 'F1 2026 Concept',sub: 'Koncept nových pravidel',color: '#3671C6', sfId: 'b5c4f3ef041345c68b8e918190d32a9c' },
-  { id: 'mclaren',  name: 'McLaren MCL39',  sub: 'Koncept 2025/26',        color: '#FF8000', sfId: 'c6194270002b401bb25be7e35ab56e34' },
+  { id: 'ferrari',  name: 'Ferrari F1',       sub: 'Vysoký detail · PBR textury',  color: '#E8002D', sfId: '49af57d466d64fe9ae715b039602561f' },
+  { id: 'mercedes', name: 'Mercedes W10',      sub: 'AMG Petronas livery · 2019',   color: '#00D2BE', sfId: 'e89589184eac42c08028db5cba3f6499' },
+  { id: 'mclaren',  name: 'McLaren MP4/5',     sub: 'Klasika · Honda V10',          color: '#FF8000', sfId: '3059d4532ecd48ca8da41e1cac971f22' },
 ]
 
 export default function F1Page() {
