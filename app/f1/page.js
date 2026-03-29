@@ -2,256 +2,213 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
-/* ─── TEAM COLOR MAP ─── */
+/* ─── HELPERS ─── */
 const TEAM_COLOR = {
-  mercedes:      '#00D2BE',
-  ferrari:       '#E8002D',
-  mclaren:       '#FF8000',
-  red_bull:      '#3671C6',
-  alpine:        '#FF87BC',
-  haas:          '#B6BABD',
-  aston_martin:  '#358C75',
-  williams:      '#37BEDD',
-  rb:            '#6692FF',
-  visa_cash_app_rb: '#6692FF',
-  sauber:        '#52E252',
-  kick_sauber:   '#52E252',
-  audi:          '#C0C0C0',
-  racing_bulls:  '#6692FF',
+  mercedes:'#00D2BE', ferrari:'#E8002D', mclaren:'#FF8000',
+  red_bull:'#3671C6', alpine:'#FF87BC', haas:'#FFFFFF',
+  aston_martin:'#358C75', williams:'#37BEDD', rb:'#6692FF',
+  racing_bulls:'#6692FF', visa_cash_app_rb:'#6692FF',
+  kick_sauber:'#52E252', sauber:'#52E252', audi:'#C0C0C0',
 }
-const getTeamColor = id => TEAM_COLOR[id] || '#888'
+const tc = id => TEAM_COLOR[id] ?? '#888'
 
-/* ─── FLAG MAP ─── */
-const FLAG = {
-  British:'🇬🇧', Dutch:'🇳🇱', Italian:'🇮🇹', German:'🇩🇪',
-  Spanish:'🇪🇸', French:'🇫🇷', Finnish:'🇫🇮', Australian:'🇦🇺',
-  Mexican:'🇲🇽', Canadian:'🇨🇦', Japanese:'🇯🇵', Thai:'🇹🇭',
-  Chinese:'🇨🇳', Danish:'🇩🇰', American:'🇺🇸', 'New Zealander':'🇳🇿',
-  Monegasque:'🇲🇨', Brazilian:'🇧🇷', Argentine:'🇦🇷', Austrian:'🇦🇹',
-  Belgian:'🇧🇪', Swiss:'🇨🇭', Swedish:'🇸🇪', Polish:'🇵🇱',
+const FLAGS = {
+  British:'🇬🇧',Dutch:'🇳🇱',Italian:'🇮🇹',German:'🇩🇪',Spanish:'🇪🇸',
+  French:'🇫🇷',Finnish:'🇫🇮',Australian:'🇦🇺',Mexican:'🇲🇽',Canadian:'🇨🇦',
+  Japanese:'🇯🇵',Thai:'🇹🇭',Chinese:'🇨🇳',Danish:'🇩🇰',American:'🇺🇸',
+  'New Zealander':'🇳🇿',Monegasque:'🇲🇨',Brazilian:'🇧🇷',Austrian:'🇦🇹',
+  Belgian:'🇧🇪',Swiss:'🇨🇭',Swedish:'🇸🇪',Polish:'🇵🇱',Argentine:'🇦🇷',
 }
-const getFlag = nat => FLAG[nat] || '🏳'
+const flag = nat => FLAGS[nat] ?? '🏳'
 
-/* ─── COUNTRY FLAG FOR CIRCUITS ─── */
-const CIRCUIT_FLAG = {
-  'Albert Park Grand Prix Circuit': '🇦🇺',
-  'Shanghai International Circuit': '🇨🇳',
-  'Suzuka Circuit': '🇯🇵',
-  'Bahrain International Circuit': '🇧🇭',
-  'Miami International Autodrome': '🇺🇸',
-  'Autodromo Enzo e Dino Ferrari': '🇮🇹',
-  'Circuit de Monaco': '🇲🇨',
-  'Circuit de Barcelona-Catalunya': '🇪🇸',
-  'Circuit Gilles Villeneuve': '🇨🇦',
-  'Silverstone Circuit': '🇬🇧',
-  'Hungaroring': '🇭🇺',
-  'Circuit de Spa-Francorchamps': '🇧🇪',
-  'Circuit Park Zandvoort': '🇳🇱',
-  'Autodromo Nazionale di Monza': '🇮🇹',
-  'Baku City Circuit': '🇦🇿',
-  'Marina Bay Street Circuit': '🇸🇬',
-  'Circuit of the Americas': '🇺🇸',
-  'Autódromo Hermanos Rodríguez': '🇲🇽',
-  'Autódromo José Carlos Pace': '🇧🇷',
-  'Las Vegas Strip Street Circuit': '🇺🇸',
-  'Losail International Circuit': '🇶🇦',
-  'Yas Marina Circuit': '🇦🇪',
+const CIRCUIT_FLAGS = {
+  'Albert Park Grand Prix Circuit':'🇦🇺',
+  'Shanghai International Circuit':'🇨🇳',
+  'Suzuka Circuit':'🇯🇵',
+  'Bahrain International Circuit':'🇧🇭',
+  'Miami International Autodrome':'🇺🇸',
+  'Autodromo Enzo e Dino Ferrari':'🇮🇹',
+  'Circuit de Monaco':'🇲🇨',
+  'Circuit de Barcelona-Catalunya':'🇪🇸',
+  'Circuit Gilles Villeneuve':'🇨🇦',
+  'Silverstone Circuit':'🇬🇧',
+  'Hungaroring':'🇭🇺',
+  'Circuit de Spa-Francorchamps':'🇧🇪',
+  'Circuit Park Zandvoort':'🇳🇱',
+  'Autodromo Nazionale di Monza':'🇮🇹',
+  'Baku City Circuit':'🇦🇿',
+  'Marina Bay Street Circuit':'🇸🇬',
+  'Circuit of the Americas':'🇺🇸',
+  'Autódromo Hermanos Rodríguez':'🇲🇽',
+  'Autódromo José Carlos Pace':'🇧🇷',
+  'Las Vegas Strip Street Circuit':'🇺🇸',
+  'Losail International Circuit':'🇶🇦',
+  'Yas Marina Circuit':'🇦🇪',
 }
-const getCircuitFlag = name => CIRCUIT_FLAG[name] || '🏁'
+const cflag = name => CIRCUIT_FLAGS[name] ?? '🏁'
+
+const fmt = d => new Date(d).toLocaleDateString('cs-CZ',{day:'numeric',month:'short'})
 
 /* ─── THREE.JS CAR ─── */
 function Car3D({ color = '#e10600' }) {
-  const mountRef = useRef(null)
+  const ref = useRef(null)
   useEffect(() => {
-    const el = mountRef.current
+    const el = ref.current
     if (!el || !window.THREE) return
-    const T = window.THREE
-    const W = el.clientWidth, H = el.clientHeight
-    const renderer = new T.WebGLRenderer({ antialias: true, alpha: true })
-    renderer.setSize(W, H)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = T.PCFSoftShadowMap
+    const T = window.THREE, W = el.clientWidth, H = el.clientHeight
+    const renderer = new T.WebGLRenderer({ antialias:true, alpha:true })
+    renderer.setSize(W,H); renderer.setPixelRatio(Math.min(devicePixelRatio,2))
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap
     el.appendChild(renderer.domElement)
     const scene = new T.Scene()
-    const cam = new T.PerspectiveCamera(40, W / H, 0.1, 100)
-    cam.position.set(5, 2.5, 6); cam.lookAt(0, 0.2, 0)
-    scene.add(new T.AmbientLight(0xffffff, 0.45))
-    const sun = new T.DirectionalLight(0xffffff, 1.6)
-    sun.position.set(8, 12, 8); sun.castShadow = true
-    sun.shadow.mapSize.width = 2048; sun.shadow.mapSize.height = 2048
-    scene.add(sun)
-    const fill = new T.DirectionalLight(0xaabbff, 0.35)
-    fill.position.set(-6, 3, -5); scene.add(fill)
-    const rim = new T.DirectionalLight(new T.Color(color), 0.9)
-    rim.position.set(0, -4, -8); scene.add(rim)
-    const gnd = new T.Mesh(new T.PlaneGeometry(40, 40), new T.MeshStandardMaterial({ color: 0x080808, metalness: 0.95, roughness: 0.05 }))
-    gnd.rotation.x = -Math.PI / 2; gnd.position.y = -0.57; gnd.receiveShadow = true; scene.add(gnd)
-    const C = new T.Color(color)
-    const bMat = new T.MeshStandardMaterial({ color: C, metalness: 0.8, roughness: 0.15 })
-    const darkMat = new T.MeshStandardMaterial({ color: 0x0d0d0d, metalness: 0.5, roughness: 0.5 })
-    const cMat = new T.MeshStandardMaterial({ color: 0x141414, metalness: 0.35, roughness: 0.65 })
-    const tireMat = new T.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.92 })
-    const rimMat = new T.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.98, roughness: 0.02 })
-    const glassMat = new T.MeshStandardMaterial({ color: 0x223355, transparent: true, opacity: 0.4, roughness: 0.0, metalness: 0.1 })
-    const silvMat = new T.MeshStandardMaterial({ color: 0x999999, metalness: 0.92, roughness: 0.12 })
-    const diskMat = new T.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff1100, emissiveIntensity: 0.5, roughness: 0.45 })
-    const stripeMat = new T.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 })
-    const car = new T.Group()
-    const mk = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => {
-      const m = new T.Mesh(geo, mat); m.castShadow = true
-      m.position.set(x, y, z); m.rotation.set(rx, ry, rz); car.add(m); return m
-    }
-    mk(new T.BoxGeometry(3.5, 0.26, 0.68), bMat, 0, 0, 0)
-    mk(new T.CylinderGeometry(0.06, 0.30, 1.6, 12), bMat, 2.24, -0.01, 0, 0, 0, Math.PI/2)
-    mk(new T.BoxGeometry(1.3, 0.28, 0.36), cMat, -0.78, 0.2, 0)
-    mk(new T.BoxGeometry(0.72, 0.18, 0.44), cMat, 0.1, 0.22, 0)
-    mk(new T.BoxGeometry(0.52, 0.08, 0.30), glassMat, 0.12, 0.32, 0)
-    mk(new T.CylinderGeometry(0.08, 0.11, 0.22, 12), darkMat, 0.14, 0.44, 0)
-    const hPts = []
-    for (let i = 0; i <= 24; i++) {
-      const a = (i / 24) * Math.PI
-      hPts.push(new T.Vector3(Math.cos(a) * 0.3 - 0.05, Math.sin(a) * 0.33 + 0.28, 0))
-    }
-    mk(new T.TubeGeometry(new T.CatmullRomCurve3(hPts), 24, 0.02, 8, false), silvMat, 0, 0, 0)
-    mk(new T.BoxGeometry(3.2, 0.04, 0.84), cMat, -0.1, -0.17, 0)
-    ;[-1, 1].forEach(s => {
-      mk(new T.BoxGeometry(1.6, 0.18, 0.2), bMat, -0.05, -0.03, s * 0.43)
-      mk(new T.CylinderGeometry(0.07, 0.10, 0.06, 12), darkMat, 0.44, 0.01, s * 0.55, Math.PI/2, 0, 0)
+    const cam = new T.PerspectiveCamera(40,W/H,0.1,100)
+    cam.position.set(5,2.5,6); cam.lookAt(0,0.2,0)
+    scene.add(new T.AmbientLight(0xffffff,0.45))
+    const sun = new T.DirectionalLight(0xffffff,1.6)
+    sun.position.set(8,12,8); sun.castShadow=true
+    sun.shadow.mapSize.width=2048; sun.shadow.mapSize.height=2048; scene.add(sun)
+    scene.add(Object.assign(new T.DirectionalLight(0xaabbff,0.35),{position:{set:()=>{}}}).clone())
+    const fill=new T.DirectionalLight(0xaabbff,0.35); fill.position.set(-6,3,-5); scene.add(fill)
+    const rim=new T.DirectionalLight(new T.Color(color),0.9); rim.position.set(0,-4,-8); scene.add(rim)
+    const gnd=new T.Mesh(new T.PlaneGeometry(40,40),new T.MeshStandardMaterial({color:0x050505,metalness:.95,roughness:.05}))
+    gnd.rotation.x=-Math.PI/2; gnd.position.y=-0.57; gnd.receiveShadow=true; scene.add(gnd)
+    const C=new T.Color(color)
+    const bM=new T.MeshStandardMaterial({color:C,metalness:.8,roughness:.15})
+    const dM=new T.MeshStandardMaterial({color:0x0d0d0d,metalness:.5,roughness:.5})
+    const cM=new T.MeshStandardMaterial({color:0x141414,metalness:.35,roughness:.65})
+    const tM=new T.MeshStandardMaterial({color:0x0a0a0a,roughness:.92})
+    const rM=new T.MeshStandardMaterial({color:0xdddddd,metalness:.98,roughness:.02})
+    const gM=new T.MeshStandardMaterial({color:0x223355,transparent:true,opacity:.4,roughness:0,metalness:.1})
+    const sM=new T.MeshStandardMaterial({color:0x999999,metalness:.92,roughness:.12})
+    const xM=new T.MeshStandardMaterial({color:0xff3300,emissive:0xff1100,emissiveIntensity:.5,roughness:.45})
+    const car=new T.Group()
+    const mk=(geo,mat,x,y,z,rx=0,ry=0,rz=0)=>{const m=new T.Mesh(geo,mat);m.castShadow=true;m.position.set(x,y,z);m.rotation.set(rx,ry,rz);car.add(m);return m}
+    mk(new T.BoxGeometry(3.5,.26,.68),bM,0,0,0)
+    mk(new T.CylinderGeometry(.06,.30,1.6,12),bM,2.24,-.01,0,0,0,Math.PI/2)
+    mk(new T.BoxGeometry(1.3,.28,.36),cM,-.78,.2,0)
+    mk(new T.BoxGeometry(.72,.18,.44),cM,.1,.22,0)
+    mk(new T.BoxGeometry(.52,.08,.30),gM,.12,.32,0)
+    mk(new T.CylinderGeometry(.08,.11,.22,12),dM,.14,.44,0)
+    const hPts=[];for(let i=0;i<=24;i++){const a=(i/24)*Math.PI;hPts.push(new T.Vector3(Math.cos(a)*.3-.05,Math.sin(a)*.33+.28,0))}
+    mk(new T.TubeGeometry(new T.CatmullRomCurve3(hPts),24,.02,8,false),sM,0,0,0)
+    mk(new T.BoxGeometry(3.2,.04,.84),cM,-.1,-.17,0)
+    ;[-1,1].forEach(s=>{mk(new T.BoxGeometry(1.6,.18,.2),bM,-.05,-.03,s*.43);mk(new T.CylinderGeometry(.07,.10,.06,12),dM,.44,.01,s*.55,Math.PI/2,0,0)})
+    mk(new T.BoxGeometry(.05,.32,1.06),bM,-1.72,.32,0);mk(new T.BoxGeometry(.05,.06,1.06),bM,-1.72,.56,0)
+    ;[-1,1].forEach(s=>mk(new T.BoxGeometry(.30,.46,.04),bM,-1.72,.35,s*.53))
+    mk(new T.BoxGeometry(.05,.035,1.14),bM,2.56,-.21,0);mk(new T.BoxGeometry(.34,.035,1.04),bM,2.36,-.165,0)
+    ;[-1,1].forEach(s=>mk(new T.BoxGeometry(.38,.19,.04),bM,2.4,-.165,s*.54))
+    ;[{x:1.48,y:-.24,z:.63,r:1},{x:1.48,y:-.24,z:-.63,r:1},{x:-1.14,y:-.24,z:.70,r:1.1},{x:-1.14,y:-.24,z:-.70,r:1.1}].forEach(wp=>{
+      mk(new T.CylinderGeometry(.30*wp.r,.30*wp.r,.26,28),tM,wp.x,wp.y,wp.z,Math.PI/2,0,0)
+      mk(new T.CylinderGeometry(.20*wp.r,.20*wp.r,.28,18),rM,wp.x,wp.y,wp.z,Math.PI/2,0,0)
+      mk(new T.CylinderGeometry(.12*wp.r,.12*wp.r,.06,16),xM,wp.x,wp.y,wp.z,Math.PI/2,0,0)
+      for(let i=0;i<5;i++){const sp=new T.Mesh(new T.BoxGeometry(.02,.16*wp.r,.03),rM);sp.rotation.z=(i/5)*Math.PI*2;sp.position.set(wp.x,wp.y,wp.z);car.add(sp)}
+      const arm=new T.Mesh(new T.CylinderGeometry(.012,.012,.52,6),sM);arm.rotation.z=Math.PI/2;arm.position.set(wp.x+(wp.x>0?-.26:.26),wp.y+.07,wp.z*.55);car.add(arm)
     })
-    mk(new T.BoxGeometry(0.05, 0.32, 1.06), bMat, -1.72, 0.32, 0)
-    mk(new T.BoxGeometry(0.05, 0.06, 1.06), bMat, -1.72, 0.56, 0)
-    ;[-1, 1].forEach(s => mk(new T.BoxGeometry(0.30, 0.46, 0.04), bMat, -1.72, 0.35, s * 0.53))
-    mk(new T.BoxGeometry(0.05, 0.035, 1.14), bMat, 2.56, -0.21, 0)
-    mk(new T.BoxGeometry(0.34, 0.035, 1.04), bMat, 2.36, -0.165, 0)
-    ;[-1, 1].forEach(s => mk(new T.BoxGeometry(0.38, 0.19, 0.04), bMat, 2.4, -0.165, s * 0.54))
-    ;[{x:1.48,y:-0.24,z:0.63,r:1},{x:1.48,y:-0.24,z:-0.63,r:1},{x:-1.14,y:-0.24,z:0.70,r:1.1},{x:-1.14,y:-0.24,z:-0.70,r:1.1}].forEach(wp => {
-      mk(new T.CylinderGeometry(0.30*wp.r, 0.30*wp.r, 0.26, 28), tireMat, wp.x, wp.y, wp.z, Math.PI/2, 0, 0)
-      mk(new T.CylinderGeometry(0.20*wp.r, 0.20*wp.r, 0.28, 18), rimMat, wp.x, wp.y, wp.z, Math.PI/2, 0, 0)
-      mk(new T.CylinderGeometry(0.12*wp.r, 0.12*wp.r, 0.06, 16), diskMat, wp.x, wp.y, wp.z, Math.PI/2, 0, 0)
-      for (let i = 0; i < 5; i++) {
-        const spoke = new T.Mesh(new T.BoxGeometry(0.02, 0.16*wp.r, 0.03), rimMat)
-        spoke.rotation.z = (i / 5) * Math.PI * 2; spoke.position.set(wp.x, wp.y, wp.z); car.add(spoke)
-      }
-      const arm = new T.Mesh(new T.CylinderGeometry(0.012, 0.012, 0.52, 6), silvMat)
-      arm.rotation.z = Math.PI/2; arm.position.set(wp.x + (wp.x > 0 ? -0.26 : 0.26), wp.y + 0.07, wp.z * 0.55); car.add(arm)
-    })
-    mk(new T.BoxGeometry(2.2, 0.006, 0.13), stripeMat, 0.3, 0.15, 0)
-    car.position.y = 0.22; scene.add(car)
-    let mx = 0, my = 0
-    const onMM = e => { const r = el.getBoundingClientRect(); mx = ((e.clientX - r.left) / W - 0.5) * 2; my = ((e.clientY - r.top) / H - 0.5) * 2 }
-    el.addEventListener('mousemove', onMM)
-    let t = 0, raf
-    const tick = () => { raf = requestAnimationFrame(tick); t += 0.007; car.rotation.y = t + mx * 0.45; car.rotation.x = my * 0.06; car.position.y = 0.22 + Math.sin(t * 0.65) * 0.045; renderer.render(scene, cam) }
+    car.position.y=.22; scene.add(car)
+    let mx=0,my=0
+    const onMM=e=>{const r=el.getBoundingClientRect();mx=((e.clientX-r.left)/W-.5)*2;my=((e.clientY-r.top)/H-.5)*2}
+    el.addEventListener('mousemove',onMM)
+    let t=0,raf
+    const tick=()=>{raf=requestAnimationFrame(tick);t+=.007;car.rotation.y=t+mx*.45;car.rotation.x=my*.06;car.position.y=.22+Math.sin(t*.65)*.045;renderer.render(scene,cam)}
     tick()
-    const onResize = () => { if (!el) return; const nW = el.clientWidth, nH = el.clientHeight; renderer.setSize(nW, nH); cam.aspect = nW/nH; cam.updateProjectionMatrix() }
-    window.addEventListener('resize', onResize)
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); el.removeEventListener('mousemove', onMM); if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement); renderer.dispose() }
-  }, [color])
-  return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+    const onResize=()=>{if(!el)return;const nW=el.clientWidth,nH=el.clientHeight;renderer.setSize(nW,nH);cam.aspect=nW/nH;cam.updateProjectionMatrix()}
+    window.addEventListener('resize',onResize)
+    return()=>{cancelAnimationFrame(raf);window.removeEventListener('resize',onResize);el.removeEventListener('mousemove',onMM);if(el.contains(renderer.domElement))el.removeChild(renderer.domElement);renderer.dispose()}
+  },[color])
+  return <div ref={ref} style={{width:'100%',height:'100%'}} />
 }
 
-/* ─── LOADING SKELETON ─── */
-function Skeleton({ w = '100%', h = 20, r = 4 }) {
-  return <div style={{ width: w, height: h, borderRadius: r, background: 'linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%)', backgroundSize: '200% 100%', animation: 'f1-shimmer 1.4s ease infinite' }} />
-}
-
-/* ─── MAIN ─── */
+/* ─── MAIN PAGE ─── */
 export default function F1Page() {
   const router = useRouter()
-  const curRef = useRef(null)
-  const dotRef = useRef(null)
   const [tab, setTab] = useState('overview')
   const [threeReady, setThreeReady] = useState(false)
   const [carColor, setCarColor] = useState('#e10600')
-  const [heroLoaded, setHeroLoaded] = useState(false)
+  const [heroIn, setHeroIn] = useState(false)
 
-  /* API state */
-  const [drivers, setDrivers] = useState([])
-  const [teams, setTeams] = useState([])
-  const [races, setRaces] = useState([])
-  const [lastRaceResults, setLastRaceResults] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [lastUpdated, setLastUpdated] = useState(null)
-  const [apiError, setApiError] = useState(false)
+  const [drivers, setDrivers]   = useState([])
+  const [teams, setTeams]       = useState([])
+  const [races, setRaces]       = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(false)
+  const [updated, setUpdated]   = useState(null)
 
-  /* Fetch from Jolpica (Ergast) API */
-  const fetchF1Data = useCallback(async () => {
+  /* ── fetch via server proxy ── */
+  const load = useCallback(async () => {
+    setLoading(true); setError(false)
     try {
-      const BASE = 'https://api.jolpica.com/ergast/v1/f1/current'
-      const [d, c, s, l] = await Promise.all([
-        fetch(`${BASE}/driverStandings.json`).then(r => r.json()),
-        fetch(`${BASE}/constructorStandings.json`).then(r => r.json()),
-        fetch(`${BASE}.json`).then(r => r.json()),
-        fetch(`${BASE}/last/results.json`).then(r => r.json()),
-      ])
+      const res = await fetch('/api/f1')
+      const json = await res.json()
+      if (json.error) throw new Error()
 
-      const dList = d?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings ?? []
-      const cList = c?.MRData?.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings ?? []
-      const rList = s?.MRData?.RaceTable?.Races ?? []
-      const lastResults = l?.MRData?.RaceTable?.Races?.[0]?.Results ?? []
+      const dList = json.drivers?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings ?? []
+      const cList = json.constructors?.MRData?.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings ?? []
+      const rList = json.schedule?.MRData?.RaceTable?.Races ?? []
 
       if (dList.length) {
+        const leader = parseInt(dList[0].points)
         setDrivers(dList.map(d => ({
-          pos: parseInt(d.position),
-          name: `${d.Driver.givenName} ${d.Driver.familyName}`,
-          short: d.Driver.code || d.Driver.familyName.substring(0,3).toUpperCase(),
-          team: d.Constructors?.[0]?.name ?? '—',
-          teamId: d.Constructors?.[0]?.constructorId ?? '',
-          num: d.Driver.permanentNumber || '—',
-          flag: getFlag(d.Driver.nationality),
-          pts: parseInt(d.points),
-          wins: parseInt(d.wins),
-          gap: d.position === '1' ? '—' : `+${dList[0].points - d.points}`,
-          color: getTeamColor(d.Constructors?.[0]?.constructorId ?? ''),
+          pos:     parseInt(d.position),
+          name:    `${d.Driver.givenName} ${d.Driver.familyName}`,
+          short:   d.Driver.code ?? d.Driver.familyName.slice(0,3).toUpperCase(),
+          team:    d.Constructors?.[0]?.name ?? '—',
+          teamId:  d.Constructors?.[0]?.constructorId ?? '',
+          num:     d.Driver.permanentNumber ?? '—',
+          flag:    flag(d.Driver.nationality),
+          pts:     parseInt(d.points),
+          wins:    parseInt(d.wins),
+          gap:     d.position === '1' ? 'LEADER' : `-${leader - parseInt(d.points)}`,
+          color:   tc(d.Constructors?.[0]?.constructorId ?? ''),
         })))
       }
 
       if (cList.length) {
         setTeams(cList.map(c => ({
-          pos: parseInt(c.position),
-          name: c.Constructor.name,
-          constructorId: c.Constructor.constructorId,
-          pts: parseInt(c.points),
-          wins: parseInt(c.wins),
-          color: getTeamColor(c.Constructor.constructorId),
+          pos:   parseInt(c.position),
+          name:  c.Constructor.name,
+          id:    c.Constructor.constructorId,
+          pts:   parseInt(c.points),
+          wins:  parseInt(c.wins),
+          color: tc(c.Constructor.constructorId),
         })))
       }
 
       if (rList.length) {
         const today = new Date()
+        let foundNext = false
         setRaces(rList.map(r => {
-          const rDate = new Date(r.date)
-          const done = rDate < today
-          const winner = r.Results?.[0]
+          const done = new Date(r.date) < today
+          const next = !done && !foundNext
+          if (next) foundNext = true
+          const w = r.Results?.[0]
           return {
-            r: parseInt(r.round),
-            name: r.raceName.replace(' Grand Prix', '').replace('Grand Prix', ''),
+            r:       parseInt(r.round),
+            name:    r.raceName.replace(/ Grand Prix$/,'').replace(/^Grand Prix$/,'GP'),
             circuit: r.Circuit.circuitName,
-            flag: getCircuitFlag(r.Circuit.circuitName),
-            date: rDate.toLocaleDateString('cs-CZ', { day:'numeric', month:'numeric', year:'numeric' }),
+            flag:    cflag(r.Circuit.circuitName),
+            date:    fmt(r.date),
             rawDate: r.date,
-            done,
-            next: !done && rList.filter(x => new Date(x.date) < today).length === rList.indexOf(r),
-            winner: winner ? `${winner.Driver.givenName} ${winner.Driver.familyName}` : null,
-            wTeam: winner?.Constructor?.name ?? null,
-            laps: winner ? parseInt(winner.laps) : null,
+            done, next,
+            winner:  w ? `${w.Driver.givenName} ${w.Driver.familyName}` : null,
+            wTeam:   w?.Constructor?.name ?? null,
+            wId:     w?.Constructor?.constructorId ?? null,
+            laps:    w ? parseInt(w.laps) : null,
           }
         }))
       }
 
-      if (lastResults.length) setLastRaceResults(lastResults.slice(0, 10))
-
-      setLastUpdated(new Date())
-      setApiError(false)
+      setUpdated(new Date())
     } catch {
-      setApiError(true)
+      setError(true)
     } finally {
       setLoading(false)
     }
   }, [])
 
-  /* Load Three.js */
+  useEffect(() => { load() }, [load])
+  useEffect(() => { const id = setInterval(load, 60000); return () => clearInterval(id) }, [load])
+  useEffect(() => { const t = setTimeout(() => setHeroIn(true), 80); return () => clearTimeout(t) }, [])
+
   useEffect(() => {
     if (window.THREE) { setThreeReady(true); return }
     const s = document.createElement('script')
@@ -260,106 +217,123 @@ export default function F1Page() {
     document.head.appendChild(s)
   }, [])
 
-  /* Cursor */
   useEffect(() => {
-    const cur = curRef.current, dot = dotRef.current
-    if (!cur || !dot) return
-    let mx = window.innerWidth/2, my = window.innerHeight/2, lx = mx, ly = my, raf
-    const mv = e => { mx = e.clientX; my = e.clientY; dot.style.left = mx+'px'; dot.style.top = my+'px' }
-    document.addEventListener('mousemove', mv)
-    const go = () => { lx+=(mx-lx)*.1; ly+=(my-ly)*.1; cur.style.left=lx+'px'; cur.style.top=ly+'px'; raf=requestAnimationFrame(go) }
-    go()
-    return () => { document.removeEventListener('mousemove', mv); cancelAnimationFrame(raf) }
-  }, [])
-
-  /* Hero + data load */
-  useEffect(() => { const t = setTimeout(() => setHeroLoaded(true), 100); return () => clearTimeout(t) }, [])
-  useEffect(() => { fetchF1Data() }, [fetchF1Data])
-
-  /* Auto-refresh every 60s */
-  useEffect(() => {
-    const id = setInterval(fetchF1Data, 60000)
-    return () => clearInterval(id)
-  }, [fetchF1Data])
-
-  /* Scroll reveal */
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      es => es.forEach(e => { if (e.isIntersecting) e.target.classList.add('f1-vis') }),
-      { threshold: 0.06 }
-    )
-    setTimeout(() => document.querySelectorAll('.f1-rev').forEach(el => obs.observe(el)), 100)
+    const obs = new IntersectionObserver(es => es.forEach(e => { if(e.isIntersecting) e.target.classList.add('vis') }), { threshold:.05 })
+    setTimeout(() => document.querySelectorAll('.rev').forEach(el => obs.observe(el)), 120)
     return () => obs.disconnect()
   }, [tab, loading])
 
-  /* Derived */
-  const leader = drivers[0]
-  const leaderTeam = teams[0]
-  const completedRaces = races.filter(r => r.done)
-  const nextRace = races.find(r => !r.done)
-  const totalRaces = races.length || 24
+  /* derived */
+  const P1       = drivers[0]
+  const T1       = teams[0]
+  const done     = races.filter(r => r.done)
+  const next     = races.find(r => r.next)
+  const total    = races.length || 24
+  const timeStr  = updated?.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'}) ?? '…'
 
-  const TEAM_COLORS_LIST = Object.entries(TEAM_COLOR).map(([id, c]) => ({
-    n: id.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase()),
-    c, id
-  })).filter(t => ['mercedes','ferrari','mclaren','red_bull','alpine','haas','aston_martin','williams','rb','kick_sauber'].includes(t.id))
+  const TABS = ['overview','standings','drivers','garage','calendar']
+  const LABELS = { overview:'Přehled', standings:'Výsledky', drivers:'Jezdci', garage:'3D Garáž', calendar:'Kalendář' }
 
-  const TABS = [
-    { id: 'overview',  label: 'Přehled'  },
-    { id: 'standings', label: 'Výsledky' },
-    { id: 'drivers',   label: 'Jezdci'   },
-    { id: 'garage',    label: '3D Garáž' },
-    { id: 'calendar',  label: 'Kalendář' },
-  ]
+  const ticker = loading
+    ? ['NAČÍTÁM DATA…']
+    : error
+    ? ['API NEDOSTUPNÉ — ZKUS OBNOVIT STRÁNKU']
+    : [
+        P1 ? `LÍDR: ${P1.name.toUpperCase()} — ${P1.pts} PTS` : '',
+        T1 ? `KONSTRUKTÉŘI: ${T1.name.toUpperCase()} — ${T1.pts} PTS` : '',
+        `ZÁVODŮ: ${done.length} / ${total}`,
+        next ? `PŘÍŠTÍ: ${next.name.toUpperCase()} GP · ${next.date}` : '',
+        ...drivers.slice(1,5).map(d => `P${d.pos} ${d.short} · ${d.pts} PTS · ${d.team.toUpperCase()}`),
+      ].filter(Boolean)
 
-  const tickerItems = loading
-    ? ['NAČÍTÁM DATA F1 2026 …']
-    : drivers.length > 0
-      ? [
-          `LÍDR ŠAMPIONÁTU: ${leader?.name?.toUpperCase()} — ${leader?.pts} BODŮ`,
-          `KONSTRUKTÉŘI: ${leaderTeam?.name?.toUpperCase()} VEDE — ${leaderTeam?.pts} BODŮ`,
-          `ODJETÝCH ZÁVODŮ: ${completedRaces.length} / ${totalRaces}`,
-          ...(nextRace ? [`PŘÍŠTÍ ZÁVOD: ${nextRace.name.toUpperCase()} GP — ${nextRace.date}`] : []),
-          ...(drivers.slice(1,4).map(d => `P${d.pos} ${d.short} — ${d.pts} BODŮ · ${d.team.toUpperCase()}`)),
-        ]
-      : ['DATA NEJSOU K DISPOZICI']
-
+  /* ── RENDER ── */
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,300;0,400;0,600;0,700;0,900;1,400&display=swap');
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { background: #fff; color: #15151e; font-family: 'Titillium Web', sans-serif; overflow-x: hidden; cursor: none !important; }
-        * { cursor: none !important; }
-        #f1cur { position: fixed; width: 24px; height: 24px; border: 2px solid #e10600; border-radius: 50%; pointer-events: none; z-index: 99999; transform: translate(-50%,-50%); transition: width .15s, height .15s; }
-        #f1dot { position: fixed; width: 4px; height: 4px; background: #e10600; border-radius: 50%; pointer-events: none; z-index: 99999; transform: translate(-50%,-50%); }
-        .f1-rev { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
-        .f1-vis { opacity: 1 !important; transform: translateY(0) !important; }
-        .hero-in { opacity: 0; transform: translateY(24px); transition: opacity .8s ease, transform .8s ease; }
-        .hero-in.loaded { opacity: 1; transform: translateY(0); }
-        @keyframes f1-tick { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-        @keyframes f1-blink { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
-        @keyframes f1-spin { to { transform: rotate(360deg) } }
-        @keyframes f1-shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
-        ::-webkit-scrollbar { width: 3px; }
-        ::-webkit-scrollbar-thumb { background: #e10600; }
-        button { font-family: 'Titillium Web', sans-serif; }
-        .f1-row:hover { background: #f7f7f7 !important; }
-        .f1-tab-btn { transition: all .2s; }
-        .f1-tab-btn:hover { color: #15151e !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
+
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        :root {
+          --red:    #e10600;
+          --bg:     #080808;
+          --s1:     #111111;
+          --s2:     #181818;
+          --s3:     #222222;
+          --border: rgba(255,255,255,.07);
+          --text:   #ffffff;
+          --text2:  rgba(255,255,255,.55);
+          --text3:  rgba(255,255,255,.25);
+          --font-h: 'Bebas Neue', sans-serif;
+          --font-b: 'Inter', sans-serif;
+        }
+        html, body { background:var(--bg); color:var(--text); font-family:var(--font-b); overflow-x:hidden; }
+        a { text-decoration:none; color:inherit; }
+        button { font-family:var(--font-b); cursor:pointer; }
+        ::-webkit-scrollbar { width:4px; }
+        ::-webkit-scrollbar-track { background:var(--bg); }
+        ::-webkit-scrollbar-thumb { background:var(--red); border-radius:2px; }
+
+        /* reveal */
+        .rev { opacity:0; transform:translateY(20px); transition:opacity .55s ease, transform .55s ease; }
+        .vis { opacity:1; transform:translateY(0); }
+        .hi { opacity:0; transform:translateY(22px); transition:opacity .7s ease, transform .7s ease; }
+        .hi.in { opacity:1; transform:translateY(0); }
+
+        /* ticker */
+        @keyframes tick { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+        @keyframes spin  { to{transform:rotate(360deg)} }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        @keyframes pulse-dot { 0%,100%{box-shadow:0 0 0 0 rgba(225,6,0,.5)} 50%{box-shadow:0 0 0 6px rgba(225,6,0,0)} }
+
+        /* skeleton */
+        .ske { background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%); background-size:200% 100%; animation:shimmer 1.4s ease infinite; border-radius:3px; }
+
+        /* nav tabs */
+        .tab-btn { background:none; border:none; border-bottom:2px solid transparent; color:var(--text3); font-family:var(--font-b); font-size:13px; font-weight:600; letter-spacing:.5px; padding:0 20px; height:52px; text-transform:uppercase; transition:all .18s; }
+        .tab-btn:hover { color:var(--text2); }
+        .tab-btn.active { color:var(--text); border-color:var(--red); }
+
+        /* table rows */
+        .trow { transition:background .15s; }
+        .trow:hover { background:var(--s2) !important; }
+
+        /* driver card */
+        .dcard { background:var(--s1); border:1px solid var(--border); transition:transform .2s, box-shadow .2s; }
+        .dcard:hover { transform:translateY(-3px); box-shadow:0 12px 40px rgba(0,0,0,.5); }
+
+        /* team chip */
+        .chip { display:inline-block; font-size:10px; font-weight:600; letter-spacing:1px; text-transform:uppercase; padding:3px 10px; border-radius:2px; }
+
+        /* btn */
+        .btn-red { background:var(--red); color:#fff; border:none; font-size:12px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; padding:12px 26px; transition:opacity .2s; }
+        .btn-red:hover { opacity:.85; }
+        .btn-ghost { background:transparent; color:var(--text2); border:1px solid var(--border); font-size:12px; font-weight:600; letter-spacing:1px; text-transform:uppercase; padding:12px 26px; transition:all .2s; }
+        .btn-ghost:hover { border-color:var(--text2); color:var(--text); }
+
+        /* refresh */
+        .btn-ref { background:var(--s2); border:1px solid var(--border); color:var(--text3); font-size:16px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:4px; transition:all .2s; }
+        .btn-ref:hover { border-color:var(--red); color:var(--red); }
+
+        /* race card */
+        .rcard { background:var(--s1); border:1px solid var(--border); padding:20px; transition:border-color .2s; }
+        .rcard:hover { border-color:rgba(255,255,255,.18); }
+        .rcard.is-next { border-color:var(--red); background:rgba(225,6,0,.04); }
+        .rcard.is-done { opacity:.65; }
+
+        /* podium */
+        .podium-bar { border:1px solid var(--border); display:flex; flex-direction:column; justify-content:flex-end; align-items:center; padding:0 16px 20px; transition:border-color .2s; }
+        .podium-bar:hover { border-color:rgba(255,255,255,.2); }
       `}</style>
 
-      <div id="f1cur" ref={curRef} />
-      <div id="f1dot" ref={dotRef} />
-
       {/* ── TICKER ── */}
-      <div style={{ background: '#15151e', height: 34, overflow: 'hidden', position: 'relative', zIndex: 200 }}>
-        <div style={{ display: 'flex', animation: 'f1-tick 40s linear infinite', whiteSpace: 'nowrap', width: 'max-content', height: '100%', alignItems: 'center' }}>
+      <div style={{ background:'#0d0d0d', borderBottom:'1px solid var(--border)', height:32, overflow:'hidden', position:'relative', zIndex:200 }}>
+        <div style={{ display:'flex', animation:'tick 45s linear infinite', whiteSpace:'nowrap', width:'max-content', height:'100%', alignItems:'center' }}>
           {[0,1].map(ri => (
-            <span key={ri} style={{ display: 'flex' }}>
-              {tickerItems.map((item, i) => (
-                <span key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: '#fff', padding: '0 48px', borderRight: '1px solid rgba(255,255,255,.1)', textTransform: 'uppercase', lineHeight: '34px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#e10600', display: 'inline-block', flexShrink: 0 }} />
+            <span key={ri} style={{ display:'flex' }}>
+              {ticker.map((item,i) => (
+                <span key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'0 40px', borderRight:'1px solid var(--border)', height:32, fontSize:10, fontWeight:600, letterSpacing:2, color:'var(--text2)', textTransform:'uppercase' }}>
+                  <span style={{ width:5, height:5, borderRadius:'50%', background:'var(--red)', animation:'blink 1.6s ease infinite', flexShrink:0 }} />
                   {item}
                 </span>
               ))}
@@ -369,222 +343,212 @@ export default function F1Page() {
       </div>
 
       {/* ── NAV ── */}
-      <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: '#fff', borderBottom: '3px solid #e10600', boxShadow: '0 2px 12px rgba(0,0,0,.08)' }}>
-        <div style={{ maxWidth: 1320, margin: '0 auto', padding: '0 40px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-            <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: '#aaa', fontSize: 12, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', transition: 'color .2s' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#15151e'}
-              onMouseLeave={e => e.currentTarget.style.color = '#aaa'}
-            >← Hub</button>
-            <div style={{ width: 1, height: 20, background: '#e8e8e8' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ background: '#e10600', padding: '4px 10px' }}>
-                <span style={{ fontSize: 15, fontWeight: 900, color: '#fff', letterSpacing: 1 }}>F1</span>
+      <nav style={{ position:'sticky', top:0, zIndex:100, background:'rgba(8,8,8,.95)', backdropFilter:'blur(16px)', borderBottom:'1px solid var(--border)' }}>
+        <div style={{ maxWidth:1280, margin:'0 auto', padding:'0 32px', height:52, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+            <button onClick={() => router.push('/')} style={{ background:'none', border:'none', color:'var(--text3)', fontSize:11, fontWeight:600, letterSpacing:2, textTransform:'uppercase', transition:'color .2s' }}
+              onMouseEnter={e=>e.currentTarget.style.color='var(--text2)'}
+              onMouseLeave={e=>e.currentTarget.style.color='var(--text3)'}
+            >← HUB</button>
+            <span style={{ width:1, height:16, background:'var(--border)' }} />
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ background:'var(--red)', padding:'4px 10px', lineHeight:1 }}>
+                <span style={{ fontFamily:'var(--font-h)', fontSize:18, color:'#fff', letterSpacing:1 }}>F1</span>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, color: '#15151e', textTransform: 'uppercase', lineHeight: 1.1 }}>Formula One</div>
-                <div style={{ fontSize: 9, fontWeight: 400, letterSpacing: 1, color: '#aaa' }}>
-                  Sezóna {new Date().getFullYear()} · {lastUpdated ? `Aktualizováno ${lastUpdated.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}` : 'Načítám…'}
+                <div style={{ fontFamily:'var(--font-h)', fontSize:16, letterSpacing:2, color:'var(--text)', lineHeight:1 }}>FORMULA ONE</div>
+                <div style={{ fontSize:9, color:'var(--text3)', letterSpacing:1.5, marginTop:2 }}>
+                  {updated ? `Aktualizováno ${timeStr}` : loading ? 'Načítám…' : error ? 'Chyba API' : ''}
                 </div>
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ display: 'flex', height: 56 }}>
-              {TABS.map(t => (
-                <button key={t.id} onClick={() => setTab(t.id)} className="f1-tab-btn" style={{ background: 'none', border: 'none', borderBottom: `3px solid ${tab === t.id ? '#e10600' : 'transparent'}`, marginBottom: -3, color: tab === t.id ? '#15151e' : '#888', fontSize: 12, fontWeight: 700, letterSpacing: 1, padding: '0 18px', height: 56, textTransform: 'uppercase' }}>{t.label}</button>
-              ))}
-            </div>
-            <button onClick={fetchF1Data} title="Obnovit data" style={{ background: 'none', border: '1px solid #e8e8e8', padding: '6px 10px', marginLeft: 8, color: '#aaa', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', transition: 'all .2s' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#e10600'; e.currentTarget.style.color = '#e10600' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.color = '#aaa' }}
-            >↻</button>
+
+          <div style={{ display:'flex', alignItems:'center', gap:0 }}>
+            {TABS.map(t => (
+              <button key={t} className={`tab-btn${tab===t?' active':''}`} onClick={() => setTab(t)}>{LABELS[t]}</button>
+            ))}
+            <div style={{ width:1, height:16, background:'var(--border)', margin:'0 12px' }} />
+            <button className="btn-ref" onClick={load} title="Obnovit">↻</button>
           </div>
         </div>
       </nav>
 
-      {/* ═══════ OVERVIEW ═══════ */}
+      {/* ════════ OVERVIEW ════════ */}
       {tab === 'overview' && (
         <div>
           {/* HERO */}
-          <div style={{ background: '#15151e', position: 'relative', overflow: 'hidden', padding: '90px 40px 72px' }}>
-            <div style={{ position: 'absolute', right: '-3%', top: '50%', transform: 'translateY(-50%)', fontSize: 'clamp(140px,20vw,300px)', fontWeight: 900, color: 'rgba(255,255,255,.025)', lineHeight: 1, letterSpacing: -12, userSelect: 'none', pointerEvents: 'none' }}>{new Date().getFullYear()}</div>
-            <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 4, background: 'linear-gradient(to bottom, #e10600, #ff4444)' }} />
-            <div style={{ maxWidth: 1320, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center' }}>
+          <div style={{ background:'var(--s1)', borderBottom:'1px solid var(--border)', padding:'80px 32px', position:'relative', overflow:'hidden' }}>
+            {/* BG number */}
+            <div style={{ position:'absolute', right:0, top:'50%', transform:'translateY(-50%)', fontFamily:'var(--font-h)', fontSize:'clamp(180px,24vw,360px)', letterSpacing:-8, color:'rgba(255,255,255,.02)', userSelect:'none', pointerEvents:'none', lineHeight:1 }}>
+              {new Date().getFullYear()}
+            </div>
+            <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:'var(--red)' }} />
+
+            <div style={{ maxWidth:1280, margin:'0 auto', display:'grid', gridTemplateColumns:'1fr 420px', gap:60, alignItems:'center' }}>
               <div>
-                <div className={`hero-in${heroLoaded?' loaded':''}`} style={{ transitionDelay:'0s' }}>
-                  <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'#e10600', padding:'5px 14px', marginBottom:22 }}>
-                    <span style={{ width:6, height:6, borderRadius:'50%', background:'#fff', animation:'f1-blink 1.5s ease infinite' }} />
-                    <span style={{ fontSize:10, fontWeight:700, letterSpacing:3, color:'#fff', textTransform:'uppercase' }}>
-                      Live · Sezóna {new Date().getFullYear()} · R{completedRaces.length}/{totalRaces}
-                    </span>
-                  </div>
+                {/* Badge */}
+                <div className={`hi${heroIn?' in':''}`} style={{ transitionDelay:'0s', marginBottom:20 }}>
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:8, background:'var(--red)', padding:'5px 14px', fontSize:9, fontWeight:700, letterSpacing:3, color:'#fff', textTransform:'uppercase' }}>
+                    <span style={{ width:5,height:5,borderRadius:'50%',background:'#fff',animation:'blink 1.5s ease infinite' }} />
+                    LIVE · SEZÓNA {new Date().getFullYear()} · R{done.length}/{total}
+                  </span>
                 </div>
-                <div className={`hero-in${heroLoaded?' loaded':''}`} style={{ transitionDelay:'.1s' }}>
-                  {loading ? (
-                    <div style={{ display:'flex',flexDirection:'column',gap:12,marginBottom:20 }}>
-                      <Skeleton h={60} w="80%" /><Skeleton h={40} w="60%" /><Skeleton h={30} w="45%" />
-                    </div>
-                  ) : (
-                    <h1 style={{ fontSize:'clamp(40px,5vw,76px)', fontWeight:900, letterSpacing:-1, lineHeight:.92, color:'#fff', marginBottom:20 }}>
-                      {leader?.team?.toUpperCase() || 'F1'}<br />
-                      <span style={{ color:'#e10600' }}>{leader ? 'VEDE' : 'ŠAMPIONÁT'}</span><br />
-                      <span style={{ fontWeight:300, color:'rgba(255,255,255,.3)', fontSize:'52%', letterSpacing:2 }}>ŠAMPIONÁTU F1 {new Date().getFullYear()}</span>
-                    </h1>
-                  )}
+
+                {/* Title */}
+                <div className={`hi${heroIn?' in':''}`} style={{ transitionDelay:'.1s' }}>
+                  {loading
+                    ? <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:24 }}><div className="ske" style={{height:72,width:'75%'}} /><div className="ske" style={{height:48,width:'55%'}} /></div>
+                    : <h1 style={{ fontFamily:'var(--font-h)', fontSize:'clamp(52px,7vw,100px)', letterSpacing:2, lineHeight:.95, color:'var(--text)', marginBottom:20 }}>
+                        {P1 ? <>{P1.team.toUpperCase()}<br/><span style={{color:'var(--red)'}}>DOMINUJE</span></> : <span style={{color:'var(--red)'}}>F1 {new Date().getFullYear()}</span>}
+                        <br/>
+                        <span style={{fontSize:'40%',letterSpacing:4,color:'var(--text3)',fontWeight:400}}>ŠAMPIONÁTU F1 {new Date().getFullYear()}</span>
+                      </h1>
+                  }
                 </div>
-                <div className={`hero-in${heroLoaded?' loaded':''}`} style={{ transitionDelay:'.2s' }}>
-                  {loading ? <Skeleton h={18} w="90%" /> : (
-                    <p style={{ fontSize:15, fontWeight:300, lineHeight:1.75, color:'rgba(255,255,255,.45)', maxWidth:440, marginBottom:36 }}>
-                      {leader ? `${leader.name} (P1, ${leader.pts} bodů) vede šampionát pro ${leader.team}. Po ${completedRaces.length} závodech ze ${totalRaces}.` : 'Data se načítají…'}
-                    </p>
-                  )}
+
+                {/* Desc */}
+                <div className={`hi${heroIn?' in':''}`} style={{ transitionDelay:'.18s' }}>
+                  {loading
+                    ? <div className="ske" style={{height:16,width:'80%',marginBottom:32}} />
+                    : <p style={{ fontSize:14, fontWeight:400, lineHeight:1.75, color:'var(--text2)', maxWidth:460, marginBottom:32 }}>
+                        {P1 ? `${P1.name} vede šampionát s ${P1.pts} body po ${done.length} závodech. ${T1 ? T1.name+' vede konstruktéry.' : ''}`
+                             : 'Data se načítají z Jolpica F1 API…'}
+                      </p>
+                  }
                 </div>
-                <div className={`hero-in${heroLoaded?' loaded':''}`} style={{ transitionDelay:'.3s', display:'flex', gap:12 }}>
-                  <button onClick={() => setTab('standings')} style={{ fontSize:12, fontWeight:700, letterSpacing:2, textTransform:'uppercase', padding:'13px 28px', background:'#e10600', color:'#fff', border:'none', transition:'background .2s' }}
-                    onMouseEnter={e=>e.currentTarget.style.background='#c00000'}
-                    onMouseLeave={e=>e.currentTarget.style.background='#e10600'}
-                  >Výsledky →</button>
-                  <button onClick={() => setTab('calendar')} style={{ fontSize:12, fontWeight:700, letterSpacing:2, textTransform:'uppercase', padding:'13px 28px', background:'transparent', color:'rgba(255,255,255,.6)', border:'1px solid rgba(255,255,255,.18)', transition:'all .2s' }}
-                    onMouseEnter={e=>{e.currentTarget.style.color='#fff';e.currentTarget.style.borderColor='rgba(255,255,255,.45)'}}
-                    onMouseLeave={e=>{e.currentTarget.style.color='rgba(255,255,255,.6)';e.currentTarget.style.borderColor='rgba(255,255,255,.18)'}}
-                  >Kalendář →</button>
+
+                <div className={`hi${heroIn?' in':''}`} style={{ transitionDelay:'.26s', display:'flex', gap:10 }}>
+                  <button className="btn-red" onClick={() => setTab('standings')}>Výsledky →</button>
+                  <button className="btn-ghost" onClick={() => setTab('calendar')}>Kalendář →</button>
                 </div>
               </div>
 
               {/* Leader card */}
-              <div className={`hero-in${heroLoaded?' loaded':''}`} style={{ transitionDelay:'.4s' }}>
-                <div style={{ background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.07)', borderTop:`4px solid ${leader?.color||'#e10600'}`, padding:'28px 32px' }}>
-                  <div style={{ fontSize:9, letterSpacing:4, color:'rgba(255,255,255,.3)', textTransform:'uppercase', marginBottom:20, fontWeight:700 }}>Lídr šampionátu</div>
-                  {loading ? (
-                    <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
-                      <Skeleton h={80} /><Skeleton h={60} />
-                    </div>
-                  ) : leader ? (
-                    <>
-                      <div style={{ display:'flex', alignItems:'flex-start', gap:18, marginBottom:24 }}>
-                        <div style={{ fontSize:68, fontWeight:900, color:'rgba(255,255,255,.05)', lineHeight:1, flexShrink:0 }}>{String(leader.pos).padStart(2,'0')}</div>
-                        <div>
-                          <div style={{ fontSize:26, fontWeight:900, color:'#fff', letterSpacing:.5, lineHeight:1.05, marginBottom:8 }}>{leader.name.split(' ').join('\n')}</div>
-                          <div style={{ fontSize:11, color:leader.color, letterSpacing:2, fontWeight:700 }}>{leader.team} · #{leader.num} · {leader.flag}</div>
-                        </div>
-                      </div>
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:'rgba(255,255,255,.05)' }}>
-                        {[['Bodů',leader.pts],['Výher',leader.wins],['Závodů',completedRaces.length]].map(([l,v])=>(
-                          <div key={l} style={{ background:'#15151e', padding:'14px 10px', textAlign:'center' }}>
-                            <div style={{ fontSize:26, fontWeight:900, color:'#fff', lineHeight:1 }}>{v}</div>
-                            <div style={{ fontSize:8, letterSpacing:2, color:'rgba(255,255,255,.25)', textTransform:'uppercase', marginTop:4 }}>{l}</div>
+              <div className={`hi${heroIn?' in':''}`} style={{ transitionDelay:'.35s' }}>
+                <div style={{ background:'var(--bg)', border:'1px solid var(--border)', borderTop:`3px solid ${P1?.color??'var(--red)'}`, padding:'28px' }}>
+                  <div style={{ fontSize:9, fontWeight:600, letterSpacing:3, color:'var(--text3)', textTransform:'uppercase', marginBottom:20 }}>Lídr šampionátu</div>
+                  {loading
+                    ? <div style={{display:'flex',flexDirection:'column',gap:10}}><div className="ske" style={{height:60}} /><div className="ske" style={{height:40}} /></div>
+                    : P1 ? <>
+                        <div style={{ display:'flex', alignItems:'flex-end', gap:16, marginBottom:20 }}>
+                          <div style={{ fontFamily:'var(--font-h)', fontSize:80, color:'rgba(255,255,255,.04)', lineHeight:1 }}>{String(P1.pos).padStart(2,'0')}</div>
+                          <div style={{ marginBottom:6 }}>
+                            <div style={{ fontFamily:'var(--font-h)', fontSize:34, letterSpacing:1, color:'var(--text)', lineHeight:1 }}>{P1.name.toUpperCase()}</div>
+                            <div style={{ fontSize:11, fontWeight:600, color:P1.color, letterSpacing:2, marginTop:4 }}>{P1.team} · #{P1.num} · {P1.flag}</div>
                           </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : <div style={{ color:'rgba(255,255,255,.3)',fontSize:13,letterSpacing:2,textTransform:'uppercase' }}>Data nejsou k dispozici</div>}
+                        </div>
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:'var(--border)' }}>
+                          {[['Bodů',P1.pts],['Výher',P1.wins],['Závodů',done.length]].map(([l,v]) => (
+                            <div key={l} style={{ background:'var(--s1)', padding:'14px 10px', textAlign:'center' }}>
+                              <div style={{ fontFamily:'var(--font-h)', fontSize:32, letterSpacing:1, color:'var(--text)', lineHeight:1 }}>{v}</div>
+                              <div style={{ fontSize:8, fontWeight:600, letterSpacing:2, color:'var(--text3)', textTransform:'uppercase', marginTop:4 }}>{l}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    : <div style={{color:'var(--text3)',fontSize:12,letterSpacing:2,textTransform:'uppercase'}}>Data nejsou k dispozici</div>
+                  }
                 </div>
               </div>
             </div>
           </div>
 
           {/* STATS BAR */}
-          <div style={{ background:'#f5f5f7', borderBottom:'1px solid #e8e8e8' }}>
-            <div style={{ maxWidth:1320, margin:'0 auto', padding:'0 40px', display:'grid', gridTemplateColumns:'repeat(4,1fr)' }}>
-              {loading ? Array(4).fill(0).map((_,i)=>(
-                <div key={i} style={{ padding:'18px 20px', borderRight: i<3?'1px solid #e8e8e8':'none' }}>
-                  <Skeleton h={10} w="60%" /><div style={{height:8}}/>
-                  <Skeleton h={20} w="80%" />
-                </div>
-              )) : [
-                { l:'Odjeté závody', v:`${completedRaces.length} / ${totalRaces}`, c:'#e10600' },
-                { l:'Lídr — jezdci', v:leader?`${leader.name.split(' ')[1]} · ${leader.pts} pts`:'—', c:'#15151e' },
-                { l:'Lídr — týmy', v:leaderTeam?`${leaderTeam.name} · ${leaderTeam.pts} pts`:'—', c:'#15151e' },
-                { l:'Příští závod', v:nextRace?`${nextRace.name} · ${nextRace.date}`:'Sezóna skončila', c:'#15151e' },
-              ].map((s,i)=>(
-                <div key={i} style={{ padding:'18px 20px', borderRight:i<3?'1px solid #e8e8e8':'none' }}>
-                  <div style={{ fontSize:9, letterSpacing:2, color:'#aaa', textTransform:'uppercase', marginBottom:5, fontWeight:700 }}>{s.l}</div>
-                  <div style={{ fontSize:17, fontWeight:700, color:s.c, letterSpacing:-.3 }}>{s.v}</div>
+          <div style={{ borderBottom:'1px solid var(--border)' }}>
+            <div style={{ maxWidth:1280, margin:'0 auto', display:'grid', gridTemplateColumns:'repeat(4,1fr)' }}>
+              {(loading ? [{l:'Závodů',v:'…'},{l:'Lídr',v:'…'},{l:'Konstruktéři',v:'…'},{l:'Příští závod',v:'…'}]
+                        : [
+                            {l:'Odjetých závodů', v:`${done.length} / ${total}`, hot:true},
+                            {l:'Lídr — jezdci',   v: P1 ? `${P1.short} · ${P1.pts} pts` : '—'},
+                            {l:'Lídr — týmy',     v: T1 ? `${T1.name} · ${T1.pts} pts` : '—'},
+                            {l:'Příští závod',    v: next ? `${next.name} GP · ${next.date}` : 'Sezóna skončila'},
+                          ]
+              ).map((s,i) => (
+                <div key={i} style={{ padding:'16px 24px', borderRight:i<3?'1px solid var(--border)':'none' }}>
+                  <div style={{ fontSize:9, fontWeight:600, letterSpacing:2, color:'var(--text3)', textTransform:'uppercase', marginBottom:5 }}>{s.l}</div>
+                  {loading
+                    ? <div className="ske" style={{height:18,width:'70%'}} />
+                    : <div style={{ fontFamily:'var(--font-h)', fontSize:20, letterSpacing:1, color: s.hot ? 'var(--red)' : 'var(--text)' }}>{s.v}</div>
+                  }
                 </div>
               ))}
             </div>
           </div>
 
-          {/* RESULTS + TEAMS */}
-          <div style={{ maxWidth:1320, margin:'0 auto', padding:'56px 40px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:48 }}>
-            {/* Last race */}
+          {/* GRID */}
+          <div style={{ maxWidth:1280, margin:'0 auto', padding:'48px 32px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:40 }}>
+            {/* Last races */}
             <div>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-                <h2 style={{ fontSize:11, fontWeight:700, letterSpacing:3, color:'#15151e', textTransform:'uppercase' }}>Poslední výsledky</h2>
-                <button onClick={()=>setTab('calendar')} style={{ background:'none',border:'none',fontSize:10,fontWeight:700,letterSpacing:1,color:'#e10600',textTransform:'uppercase',textDecoration:'underline' }}>Vše →</button>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                <span style={{ fontFamily:'var(--font-h)', fontSize:22, letterSpacing:2, color:'var(--text)' }}>POSLEDNÍ ZÁVODY</span>
+                <button onClick={()=>setTab('calendar')} style={{ background:'none', border:'none', fontSize:11, fontWeight:600, letterSpacing:1, color:'var(--red)', textTransform:'uppercase' }}>Vše →</button>
               </div>
-              {loading ? (
-                <div style={{ display:'flex',flexDirection:'column',gap:2 }}>
-                  {[1,2].map(i=><div key={i} style={{ background:'#f9f9f9',borderLeft:'4px solid #e10600',padding:'20px 24px' }}><Skeleton h={16} w="40%" /><div style={{height:6}}/><Skeleton h={24} w="70%" /></div>)}
-                </div>
-              ) : (
-                <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                  {completedRaces.slice(-3).reverse().map(r=>(
-                    <div key={r.r} className="f1-rev" style={{ background:'#f9f9f9', borderLeft:'4px solid #e10600', padding:'18px 24px', display:'flex', alignItems:'center', gap:16 }}>
-                      <span style={{ fontSize:30 }}>{r.flag}</span>
+              <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                {loading
+                  ? Array(3).fill(0).map((_,i) => <div key={i} className="ske" style={{height:72}} />)
+                  : done.slice(-3).reverse().map(r => (
+                    <div key={r.r} className="rev" style={{ background:'var(--s1)', borderLeft:`3px solid var(--red)`, padding:'16px 20px', display:'flex', alignItems:'center', gap:16 }}>
+                      <span style={{ fontSize:28 }}>{r.flag}</span>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:9, letterSpacing:2, color:'#aaa', textTransform:'uppercase', marginBottom:3, fontWeight:600 }}>R{r.r} · {r.date}</div>
-                        <div style={{ fontSize:18, fontWeight:700, color:'#15151e', letterSpacing:.3 }}>{r.name} GP</div>
-                        <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>{r.circuit}{r.laps?` · ${r.laps} kol`:''}</div>
+                        <div style={{ fontSize:9, fontWeight:600, letterSpacing:2, color:'var(--text3)', textTransform:'uppercase', marginBottom:3 }}>R{r.r} · {r.date}</div>
+                        <div style={{ fontFamily:'var(--font-h)', fontSize:20, letterSpacing:1, color:'var(--text)' }}>{r.name} GRAND PRIX</div>
+                        <div style={{ fontSize:10, color:'var(--text3)', marginTop:2 }}>{r.circuit}{r.laps ? ` · ${r.laps} kol` : ''}</div>
                       </div>
                       {r.winner && (
                         <div style={{ textAlign:'right' }}>
-                          <div style={{ fontSize:9, letterSpacing:2, color:'#aaa', textTransform:'uppercase', marginBottom:3, fontWeight:600 }}>Vítěz</div>
-                          <div style={{ fontSize:16, fontWeight:700, color:'#15151e' }}>{r.winner.split(' ')[1]||r.winner}</div>
-                          <div style={{ fontSize:10, color:getTeamColor(r.wTeam?.toLowerCase().replace(/ /g,'_')||''), fontWeight:600 }}>{r.wTeam}</div>
+                          <div style={{ fontSize:9, fontWeight:600, letterSpacing:2, color:'var(--text3)', textTransform:'uppercase', marginBottom:3 }}>Vítěz</div>
+                          <div style={{ fontFamily:'var(--font-h)', fontSize:18, letterSpacing:1, color:'var(--text)' }}>{r.winner.split(' ').pop()}</div>
+                          <div style={{ fontSize:10, fontWeight:600, color: tc(r.wId??''), marginTop:2 }}>{r.wTeam}</div>
                         </div>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                }
+              </div>
             </div>
 
-            {/* Constructors mini */}
+            {/* Constructors */}
             <div>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-                <h2 style={{ fontSize:11, fontWeight:700, letterSpacing:3, color:'#15151e', textTransform:'uppercase' }}>Konstruktéři</h2>
-                <button onClick={()=>setTab('standings')} style={{ background:'none',border:'none',fontSize:10,fontWeight:700,letterSpacing:1,color:'#e10600',textTransform:'uppercase',textDecoration:'underline' }}>Vše →</button>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                <span style={{ fontFamily:'var(--font-h)', fontSize:22, letterSpacing:2, color:'var(--text)' }}>KONSTRUKTÉŘI</span>
+                <button onClick={()=>setTab('standings')} style={{ background:'none', border:'none', fontSize:11, fontWeight:600, letterSpacing:1, color:'var(--red)', textTransform:'uppercase' }}>Vše →</button>
               </div>
-              {loading ? (
-                <div style={{ display:'flex',flexDirection:'column',gap:1 }}>
-                  {Array(6).fill(0).map((_,i)=><div key={i} style={{ background:'#f9f9f9',padding:'14px 16px' }}><Skeleton h={16} /></div>)}
-                </div>
-              ) : (
-                <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
-                  {teams.slice(0,7).map(t=>(
-                    <div key={t.name} className="f1-rev f1-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'#f9f9f9', transition:'background .15s' }}>
-                      <span style={{ fontSize:13, fontWeight:700, color:'#ddd', minWidth:20 }}>{t.pos}</span>
-                      <div style={{ width:4, height:18, background:t.color, borderRadius:1, flexShrink:0 }} />
-                      <span style={{ fontSize:14, fontWeight:700, color:'#15151e', flex:1 }}>{t.name}</span>
-                      <div style={{ width:100, height:3, background:'#eee', position:'relative', borderRadius:2 }}>
-                        <div style={{ position:'absolute', top:0, left:0, height:'100%', borderRadius:2, width:`${Math.round((t.pts/(teams[0]?.pts||1))*100)}%`, background:t.color }} />
+              <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                {loading
+                  ? Array(6).fill(0).map((_,i) => <div key={i} className="ske" style={{height:44}} />)
+                  : teams.slice(0,8).map(t => (
+                    <div key={t.name} className="rev trow" style={{ background:'var(--s1)', display:'flex', alignItems:'center', gap:12, padding:'11px 16px' }}>
+                      <span style={{ fontFamily:'var(--font-h)', fontSize:16, letterSpacing:1, color:'var(--text3)', minWidth:22 }}>{t.pos}</span>
+                      <div style={{ width:3, height:20, background:t.color, borderRadius:1, flexShrink:0 }} />
+                      <span style={{ fontSize:13, fontWeight:600, color:'var(--text)', flex:1, letterSpacing:.3 }}>{t.name}</span>
+                      <div style={{ width:90, height:2, background:'var(--s3)' }}>
+                        <div style={{ height:'100%', width:`${Math.round((t.pts/(teams[0]?.pts||1))*100)}%`, background:t.color }} />
                       </div>
-                      <span style={{ fontSize:17, fontWeight:900, color:'#15151e', minWidth:38, textAlign:'right' }}>{t.pts}</span>
+                      <span style={{ fontFamily:'var(--font-h)', fontSize:20, letterSpacing:1, color:'var(--text)', minWidth:36, textAlign:'right' }}>{t.pts}</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                }
+              </div>
             </div>
           </div>
 
-          {/* TOP 3 PODIUM */}
+          {/* PODIUM */}
           {!loading && drivers.length >= 3 && (
-            <div style={{ background:'#15151e', padding:'56px 40px' }}>
-              <div style={{ maxWidth:1320, margin:'0 auto' }}>
-                <div style={{ fontSize:10, letterSpacing:4, color:'rgba(255,255,255,.3)', textTransform:'uppercase', fontWeight:700, marginBottom:32 }}>Top 3 — Šampionát jezdců</div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1.15fr 1fr', gap:2, alignItems:'flex-end' }}>
-                  {[drivers[1], drivers[0], drivers[2]].map((d,idx)=>{
-                    const heights = [180, 220, 160]
-                    const medals = ['🥈','🥇','🥉']
+            <div style={{ background:'var(--s1)', borderTop:'1px solid var(--border)', padding:'56px 32px' }}>
+              <div style={{ maxWidth:1280, margin:'0 auto' }}>
+                <div style={{ fontFamily:'var(--font-h)', fontSize:11, letterSpacing:4, color:'var(--text3)', marginBottom:28 }}>TOP 3 — ŠAMPIONÁT JEZDCŮ</div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1.1fr 1fr', gap:2, alignItems:'flex-end', maxWidth:700 }}>
+                  {[drivers[1],drivers[0],drivers[2]].map((d,idx) => {
+                    const heights = [160,200,140]
+                    const medals  = ['🥈','🥇','🥉']
                     return (
-                      <div key={d?.name||idx} className="f1-rev" style={{ background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.06)', borderTop:`3px solid ${d?.color||'#888'}`, padding:'24px 20px', height:heights[idx], display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
-                        <div style={{ fontSize:22 }}>{medals[idx]}</div>
-                        <div style={{ fontSize:24, fontWeight:900, color:'#fff', lineHeight:1.1, marginTop:8 }}>{d?.name?.split(' ')[1]||d?.name}</div>
-                        <div style={{ fontSize:10, color:d?.color||'#888', letterSpacing:2, fontWeight:700, marginTop:4 }}>{d?.team}</div>
-                        <div style={{ fontSize:32, fontWeight:900, color:'#fff', marginTop:8 }}>{d?.pts}</div>
-                        <div style={{ fontSize:8, letterSpacing:2, color:'rgba(255,255,255,.3)', textTransform:'uppercase' }}>bodů</div>
+                      <div key={d?.name??idx} className="rev podium-bar" style={{ height:heights[idx], borderTop:`3px solid ${d?.color??'#555'}` }}>
+                        <div style={{ fontSize:20, marginBottom:8 }}>{medals[idx]}</div>
+                        <div style={{ fontFamily:'var(--font-h)', fontSize:22, letterSpacing:1, color:'var(--text)', textAlign:'center', lineHeight:1.1 }}>{d?.name?.split(' ').pop()}</div>
+                        <div style={{ fontSize:9, fontWeight:600, letterSpacing:2, color: d?.color??'#555', marginTop:6, textTransform:'uppercase' }}>{d?.team}</div>
+                        <div style={{ fontFamily:'var(--font-h)', fontSize:36, letterSpacing:1, color:'var(--text)', marginTop:8 }}>{d?.pts}</div>
+                        <div style={{ fontSize:8, fontWeight:600, letterSpacing:2, color:'var(--text3)', textTransform:'uppercase' }}>PTS</div>
                       </div>
                     )
                   })}
@@ -595,154 +559,161 @@ export default function F1Page() {
         </div>
       )}
 
-      {/* ═══════ STANDINGS ═══════ */}
+      {/* ════════ STANDINGS ════════ */}
       {tab === 'standings' && (
-        <div style={{ maxWidth:1320, margin:'0 auto', padding:'56px 40px' }}>
-          <div style={{ borderLeft:'4px solid #e10600', paddingLeft:20, marginBottom:48 }}>
-            <div style={{ fontSize:9, letterSpacing:4, color:'#e10600', textTransform:'uppercase', fontWeight:700, marginBottom:4 }}>
-              Šampionát {new Date().getFullYear()} · Po R{completedRaces.length}
-            </div>
-            <h2 style={{ fontSize:38, fontWeight:900, color:'#15151e', letterSpacing:-1 }}>VÝSLEDKOVÁ LISTINA</h2>
+        <div style={{ maxWidth:1280, margin:'0 auto', padding:'48px 32px' }}>
+          <div style={{ display:'flex', alignItems:'baseline', gap:16, marginBottom:40 }}>
+            <h2 style={{ fontFamily:'var(--font-h)', fontSize:52, letterSpacing:2, color:'var(--text)' }}>VÝSLEDKOVÁ LISTINA</h2>
+            <span style={{ fontSize:11, fontWeight:600, letterSpacing:2, color:'var(--red)', textTransform:'uppercase' }}>
+              {new Date().getFullYear()} · Po R{done.length}
+            </span>
           </div>
 
-          {loading ? (
-            <div style={{ display:'flex',flexDirection:'column',gap:2 }}>
-              {Array(10).fill(0).map((_,i)=><div key={i} style={{ background:'#f9f9f9',padding:'16px 20px' }}><Skeleton h={18} /></div>)}
-            </div>
-          ) : (
-            <>
-              {/* DRIVERS TABLE */}
-              <h3 style={{ fontSize:10, letterSpacing:4, color:'#aaa', textTransform:'uppercase', fontWeight:700, marginBottom:10 }}>Jezdci</h3>
-              <div style={{ marginBottom:56, border:'1px solid #e8e8e8', overflow:'hidden' }}>
-                <div style={{ display:'grid', gridTemplateColumns:'50px 1fr 160px 80px 60px 80px', padding:'10px 20px', background:'#15151e' }}>
-                  {['POS','JEZDEC','TÝM','BODY','WIN','GAP'].map(h=>(
-                    <span key={h} style={{ fontSize:8, letterSpacing:3, color:'rgba(255,255,255,.35)', textTransform:'uppercase', fontWeight:700 }}>{h}</span>
-                  ))}
-                </div>
-                {drivers.map((d,i)=>(
-                  <div key={d.name} className="f1-rev f1-row" style={{ display:'grid', gridTemplateColumns:'50px 1fr 160px 80px 60px 80px', alignItems:'center', padding:'13px 20px', background:'#fff', borderTop:'1px solid #f0f0f0', borderLeft:`4px solid ${i<3?d.color:'transparent'}`, transition:'background .15s' }}>
-                    <span style={{ fontSize:18, fontWeight:900, color:i===0?'#e10600':i<3?'#15151e':'#ccc' }}>{d.pos}</span>
-                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                      <span style={{ fontSize:18 }}>{d.flag}</span>
-                      <div>
-                        <div style={{ fontSize:14, fontWeight:700, color:'#15151e', letterSpacing:.3 }}>{d.name}</div>
-                        <div style={{ fontSize:9, color:'#bbb', letterSpacing:1 }}>#{d.num}</div>
-                      </div>
-                    </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                      <div style={{ width:3, height:14, background:d.color, borderRadius:1, flexShrink:0 }} />
-                      <span style={{ fontSize:11, color:'#777', fontWeight:600 }}>{d.team}</span>
-                    </div>
-                    <span style={{ fontSize:18, fontWeight:900, color:'#15151e' }}>{d.pts}</span>
-                    <span style={{ fontSize:14, color:'#15151e', fontWeight:600 }}>{d.wins}</span>
-                    <span style={{ fontSize:12, color:d.gap==='—'?'#e10600':'#aaa', fontWeight:600 }}>{d.gap}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* TEAMS TABLE */}
-              <h3 style={{ fontSize:10, letterSpacing:4, color:'#aaa', textTransform:'uppercase', fontWeight:700, marginBottom:10 }}>Konstruktéři</h3>
-              <div style={{ border:'1px solid #e8e8e8', overflow:'hidden' }}>
-                <div style={{ display:'grid', gridTemplateColumns:'50px 1fr 80px 60px', padding:'10px 20px', background:'#15151e' }}>
-                  {['POS','TÝM','BODY','WIN'].map(h=>(
-                    <span key={h} style={{ fontSize:8, letterSpacing:3, color:'rgba(255,255,255,.35)', textTransform:'uppercase', fontWeight:700 }}>{h}</span>
-                  ))}
-                </div>
-                {teams.map((t,i)=>(
-                  <div key={t.name} className="f1-rev f1-row" style={{ display:'grid', gridTemplateColumns:'50px 1fr 80px 60px', alignItems:'center', padding:'13px 20px', background:'#fff', borderTop:'1px solid #f0f0f0', borderLeft:`4px solid ${i<2?t.color:'transparent'}`, transition:'background .15s' }}>
-                    <span style={{ fontSize:18, fontWeight:900, color:i===0?'#e10600':'#ccc' }}>{t.pos}</span>
-                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <div style={{ width:4, height:20, background:t.color, borderRadius:1 }} />
-                      <span style={{ fontSize:14, fontWeight:700, color:'#15151e' }}>{t.name}</span>
-                    </div>
-                    <span style={{ fontSize:18, fontWeight:900, color:'#15151e' }}>{t.pts}</span>
-                    <span style={{ fontSize:14, fontWeight:600, color:'#777' }}>{t.wins}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ═══════ DRIVERS ═══════ */}
-      {tab === 'drivers' && (
-        <div style={{ maxWidth:1320, margin:'0 auto', padding:'56px 40px' }}>
-          <div style={{ borderLeft:'4px solid #e10600', paddingLeft:20, marginBottom:48 }}>
-            <div style={{ fontSize:9, letterSpacing:4, color:'#e10600', textTransform:'uppercase', fontWeight:700, marginBottom:4 }}>Sezóna {new Date().getFullYear()}</div>
-            <h2 style={{ fontSize:38, fontWeight:900, color:'#15151e', letterSpacing:-1 }}>JEZDCI</h2>
-          </div>
-          {loading ? (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:2 }}>
-              {Array(10).fill(0).map((_,i)=><div key={i} style={{ background:'#f9f9f9',padding:'24px',height:240 }}><Skeleton h={20} w="60%"/><div style={{height:8}}/><Skeleton h={16} w="40%"/></div>)}
-            </div>
-          ) : (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:2 }}>
-              {drivers.map((d,i)=>(
-                <div key={d.name} className="f1-rev" style={{ background:'#fff', border:'1px solid #ebebeb', borderTop:`4px solid ${d.color}`, transition:'box-shadow .2s, transform .2s' }}
-                  onMouseEnter={e=>{ e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,.09)'; e.currentTarget.style.transform='translateY(-2px)' }}
-                  onMouseLeave={e=>{ e.currentTarget.style.boxShadow='none'; e.currentTarget.style.transform='translateY(0)' }}
-                >
-                  <div style={{ padding:'18px 20px 14px', display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
-                    <div style={{ fontSize:48, fontWeight:900, color:'#f0f0f0', lineHeight:1 }}>{String(d.pos).padStart(2,'0')}</div>
-                    <div style={{ textAlign:'right' }}>
-                      <span style={{ fontSize:26 }}>{d.flag}</span>
-                      <div style={{ fontSize:9, color:'#bbb', letterSpacing:2, marginTop:2 }}>#{d.num}</div>
-                    </div>
-                  </div>
-                  <div style={{ padding:'0 20px 14px' }}>
-                    <div style={{ fontSize:18, fontWeight:900, color:'#15151e', letterSpacing:.3, lineHeight:1.1, marginBottom:4 }}>{d.name}</div>
-                    <div style={{ fontSize:10, color:d.color, fontWeight:700, letterSpacing:2, textTransform:'uppercase', marginBottom:0 }}>{d.team}</div>
-                  </div>
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:'#f0f0f0' }}>
-                    {[['PTS',d.pts],['WIN',d.wins],['GAP',d.gap]].map(([l,v])=>(
-                      <div key={l} style={{ background:'#fff', padding:'12px 8px', textAlign:'center' }}>
-                        <div style={{ fontSize:7, letterSpacing:2, color:'#bbb', textTransform:'uppercase', fontWeight:700, marginBottom:3 }}>{l}</div>
-                        <div style={{ fontSize:18, fontWeight:900, color:l==='PTS'?d.color:l==='GAP'&&v==='—'?'#e10600':'#15151e' }}>{v}</div>
-                      </div>
+          {loading
+            ? <div style={{display:'flex',flexDirection:'column',gap:2}}>{Array(12).fill(0).map((_,i) => <div key={i} className="ske" style={{height:50}} />)}</div>
+            : <>
+                {/* Drivers */}
+                <div style={{ fontFamily:'var(--font-h)', fontSize:13, letterSpacing:3, color:'var(--text3)', marginBottom:10 }}>JEZDCI</div>
+                <div style={{ marginBottom:48, border:'1px solid var(--border)', overflow:'hidden' }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'48px 1fr 180px 80px 60px 80px', padding:'10px 20px', background:'var(--s2)' }}>
+                    {['POS','JEZDEC','TÝM','PTS','WIN','GAP'].map(h => (
+                      <span key={h} style={{ fontSize:8, fontWeight:700, letterSpacing:3, color:'var(--text3)', textTransform:'uppercase' }}>{h}</span>
                     ))}
                   </div>
+                  {drivers.map((d,i) => (
+                    <div key={d.name} className="rev trow" style={{ display:'grid', gridTemplateColumns:'48px 1fr 180px 80px 60px 80px', alignItems:'center', padding:'13px 20px', background:'var(--s1)', borderTop:'1px solid var(--border)', borderLeft:`3px solid ${i<3?d.color:'transparent'}` }}>
+                      <span style={{ fontFamily:'var(--font-h)', fontSize:22, letterSpacing:1, color:i===0?'var(--red)':i<3?'var(--text)':'var(--text3)' }}>{d.pos}</span>
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <span style={{ fontSize:18 }}>{d.flag}</span>
+                        <div>
+                          <div style={{ fontSize:14, fontWeight:600, color:'var(--text)', letterSpacing:.3 }}>{d.name}</div>
+                          <div style={{ fontSize:9, color:'var(--text3)', letterSpacing:1, marginTop:1 }}>#{d.num}</div>
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <div style={{ width:2, height:14, background:d.color, borderRadius:1 }} />
+                        <span style={{ fontSize:11, fontWeight:500, color:'var(--text2)' }}>{d.team}</span>
+                      </div>
+                      <span style={{ fontFamily:'var(--font-h)', fontSize:22, letterSpacing:1, color:'var(--text)' }}>{d.pts}</span>
+                      <span style={{ fontFamily:'var(--font-h)', fontSize:18, letterSpacing:1, color:'var(--text2)' }}>{d.wins}</span>
+                      <span style={{ fontSize:11, fontWeight:600, color: d.gap==='LEADER'?'var(--red)':'var(--text3)', letterSpacing:.5 }}>{d.gap}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+
+                {/* Constructors */}
+                <div style={{ fontFamily:'var(--font-h)', fontSize:13, letterSpacing:3, color:'var(--text3)', marginBottom:10 }}>KONSTRUKTÉŘI</div>
+                <div style={{ border:'1px solid var(--border)', overflow:'hidden' }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'48px 1fr 80px 60px 1fr', padding:'10px 20px', background:'var(--s2)' }}>
+                    {['POS','TÝM','PTS','WIN',''].map(h => (
+                      <span key={h} style={{ fontSize:8, fontWeight:700, letterSpacing:3, color:'var(--text3)', textTransform:'uppercase' }}>{h}</span>
+                    ))}
+                  </div>
+                  {teams.map((t,i) => (
+                    <div key={t.name} className="rev trow" style={{ display:'grid', gridTemplateColumns:'48px 1fr 80px 60px 1fr', alignItems:'center', padding:'13px 20px', background:'var(--s1)', borderTop:'1px solid var(--border)', borderLeft:`3px solid ${i<2?t.color:'transparent'}` }}>
+                      <span style={{ fontFamily:'var(--font-h)', fontSize:22, letterSpacing:1, color:i===0?'var(--red)':'var(--text3)' }}>{t.pos}</span>
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <div style={{ width:3, height:20, background:t.color, borderRadius:1 }} />
+                        <span style={{ fontSize:14, fontWeight:600, color:'var(--text)', letterSpacing:.3 }}>{t.name}</span>
+                      </div>
+                      <span style={{ fontFamily:'var(--font-h)', fontSize:22, letterSpacing:1, color:'var(--text)' }}>{t.pts}</span>
+                      <span style={{ fontFamily:'var(--font-h)', fontSize:18, letterSpacing:1, color:'var(--text2)' }}>{t.wins}</span>
+                      <div style={{ paddingRight:8 }}>
+                        <div style={{ height:2, background:'var(--s3)' }}>
+                          <div style={{ height:'100%', width:`${Math.round((t.pts/(teams[0]?.pts||1))*100)}%`, background:t.color }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+          }
         </div>
       )}
 
-      {/* ═══════ GARAGE ═══════ */}
+      {/* ════════ DRIVERS ════════ */}
+      {tab === 'drivers' && (
+        <div style={{ maxWidth:1280, margin:'0 auto', padding:'48px 32px' }}>
+          <div style={{ display:'flex', alignItems:'baseline', gap:16, marginBottom:40 }}>
+            <h2 style={{ fontFamily:'var(--font-h)', fontSize:52, letterSpacing:2, color:'var(--text)' }}>JEZDCI</h2>
+            <span style={{ fontSize:11, fontWeight:600, letterSpacing:2, color:'var(--red)', textTransform:'uppercase' }}>Sezóna {new Date().getFullYear()}</span>
+          </div>
+
+          {loading
+            ? <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:2}}>{Array(10).fill(0).map((_,i)=><div key={i} className="ske" style={{height:200}} />)}</div>
+            : <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:2 }}>
+                {drivers.map((d,i) => (
+                  <div key={d.name} className="rev dcard" style={{ borderTop:`3px solid ${d.color}` }}>
+                    {/* top */}
+                    <div style={{ padding:'18px 18px 12px', display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
+                      <div style={{ fontFamily:'var(--font-h)', fontSize:56, letterSpacing:1, color:'rgba(255,255,255,.05)', lineHeight:1 }}>
+                        {String(d.pos).padStart(2,'0')}
+                      </div>
+                      <div style={{ textAlign:'right' }}>
+                        <div style={{ fontSize:26 }}>{d.flag}</div>
+                        <div style={{ fontSize:9, color:'var(--text3)', letterSpacing:2, marginTop:2 }}>#{d.num}</div>
+                      </div>
+                    </div>
+                    {/* info */}
+                    <div style={{ padding:'0 18px 14px' }}>
+                      <div style={{ fontFamily:'var(--font-h)', fontSize:22, letterSpacing:1, color:'var(--text)', lineHeight:1.05 }}>{d.name.toUpperCase()}</div>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:6 }}>
+                        <div style={{ width:2, height:12, background:d.color, borderRadius:1 }} />
+                        <span style={{ fontSize:10, fontWeight:600, color:d.color, letterSpacing:2, textTransform:'uppercase' }}>{d.team}</span>
+                      </div>
+                    </div>
+                    {/* stats */}
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:'var(--border)' }}>
+                      {[['PTS',d.pts,'var(--text)'],['WIN',d.wins,'var(--text2)'],['GAP',d.gap, d.gap==='LEADER'?'var(--red)':'var(--text3)']].map(([l,v,c]) => (
+                        <div key={l} style={{ background:'var(--bg)', padding:'12px 8px', textAlign:'center' }}>
+                          <div style={{ fontSize:7, fontWeight:700, letterSpacing:2, color:'var(--text3)', textTransform:'uppercase', marginBottom:4 }}>{l}</div>
+                          <div style={{ fontFamily:'var(--font-h)', fontSize:20, letterSpacing:1, color:c }}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+          }
+        </div>
+      )}
+
+      {/* ════════ GARAGE ════════ */}
       {tab === 'garage' && (
         <div>
-          <div style={{ maxWidth:1320, margin:'0 auto', padding:'56px 40px 24px' }}>
-            <div style={{ borderLeft:'4px solid #e10600', paddingLeft:20, marginBottom:28 }}>
-              <div style={{ fontSize:9, letterSpacing:4, color:'#e10600', textTransform:'uppercase', fontWeight:700, marginBottom:4 }}>Interaktivní · WebGL</div>
-              <h2 style={{ fontSize:38, fontWeight:900, color:'#15151e', letterSpacing:-1 }}>3D GARÁŽ</h2>
+          <div style={{ maxWidth:1280, margin:'0 auto', padding:'48px 32px 24px' }}>
+            <div style={{ display:'flex', alignItems:'baseline', gap:16, marginBottom:20 }}>
+              <h2 style={{ fontFamily:'var(--font-h)', fontSize:52, letterSpacing:2, color:'var(--text)' }}>3D GARÁŽ</h2>
+              <span style={{ fontSize:11, fontWeight:600, letterSpacing:2, color:'var(--red)', textTransform:'uppercase' }}>Interaktivní · WebGL</span>
             </div>
-            <p style={{ fontSize:13, color:'#999', marginBottom:20, fontWeight:300 }}>Pohybuj myší pro rotaci vozu · Vyber barvu týmu</p>
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16 }}>
-              {(teams.length > 0 ? teams.map(t=>({n:t.name,c:t.color,id:t.constructorId})) : TEAM_COLORS_LIST).map(t=>(
-                <button key={t.id||t.n} onClick={()=>setCarColor(t.c)} style={{ fontSize:10, fontWeight:700, letterSpacing:1, textTransform:'uppercase', padding:'7px 16px', background:carColor===t.c?t.c:'#f5f5f5', color:carColor===t.c?'#fff':'#777', border:`2px solid ${carColor===t.c?t.c:'#e8e8e8'}`, transition:'all .2s' }}>{t.n}</button>
+            <p style={{ fontSize:13, color:'var(--text3)', marginBottom:20 }}>Pohybuj myší pro rotaci · Vyber barvu týmu</p>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:4 }}>
+              {(teams.length > 0 ? teams : [{name:'Ferrari',color:'#E8002D',id:'ferrari'},{name:'Mercedes',color:'#00D2BE',id:'mercedes'},{name:'McLaren',color:'#FF8000',id:'mclaren'},{name:'Red Bull',color:'#3671C6',id:'red_bull'}]).map(t => (
+                <button key={t.id??t.name} onClick={() => setCarColor(t.color)}
+                  style={{ fontSize:10, fontWeight:700, letterSpacing:1, textTransform:'uppercase', padding:'7px 16px', background: carColor===t.color ? t.color : 'var(--s2)', color: carColor===t.color ? '#fff' : 'var(--text3)', border:`1px solid ${carColor===t.color ? t.color : 'var(--border)'}`, transition:'all .2s' }}
+                >{t.name}</button>
               ))}
             </div>
           </div>
-          <div style={{ background:'#15151e', position:'relative', height:560 }}>
-            <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:`linear-gradient(90deg, transparent, ${carColor}, transparent)`, zIndex:2 }} />
+
+          <div style={{ background:'var(--s1)', position:'relative', height:560, borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)' }}>
+            <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:`linear-gradient(90deg, transparent, ${carColor}, transparent)`, zIndex:2 }} />
             {threeReady
               ? <Car3D key={carColor} color={carColor} />
-              : <div style={{ height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:16 }}>
-                    <div style={{ width:32, height:32, border:'3px solid rgba(255,255,255,.1)', borderTop:'3px solid #e10600', borderRadius:'50%', animation:'f1-spin .8s linear infinite' }} />
-                    <span style={{ fontSize:11, letterSpacing:4, color:'rgba(255,255,255,.2)', textTransform:'uppercase' }}>Načítám 3D engine…</span>
-                  </div>
+              : <div style={{ height:'100%', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
+                  <div style={{ width:32, height:32, border:'3px solid var(--border)', borderTop:'3px solid var(--red)', borderRadius:'50%', animation:'spin .8s linear infinite' }} />
+                  <span style={{ fontSize:10, fontWeight:600, letterSpacing:4, color:'var(--text3)', textTransform:'uppercase' }}>Načítám 3D…</span>
                 </div>
             }
-            <div style={{ position:'absolute', bottom:0, left:0, right:0, height:80, background:'linear-gradient(to top,rgba(21,21,30,.95),transparent)', pointerEvents:'none', zIndex:1 }} />
+            <div style={{ position:'absolute', bottom:0, left:0, right:0, height:80, background:'linear-gradient(to top,rgba(8,8,8,.9),transparent)', pointerEvents:'none', zIndex:1 }} />
           </div>
-          <div style={{ background:'#f5f5f7', borderBottom:'1px solid #e8e8e8' }}>
-            <div style={{ maxWidth:1320, margin:'0 auto', padding:'0 40px', display:'grid', gridTemplateColumns:'repeat(5,1fr)' }}>
-              {[['Motor','1.6L V6 Turbo Hybrid'],['Výkon','1000+ koní'],['Hmotnost','798 kg min.'],['Max RPM','15 000'],['0–100 km/h','~2.4 s']].map(([l,v],i)=>(
-                <div key={l} style={{ padding:'18px 16px', borderRight:i<4?'1px solid #e8e8e8':'none' }}>
-                  <div style={{ fontSize:8, letterSpacing:2, color:'#aaa', textTransform:'uppercase', fontWeight:600, marginBottom:4 }}>{l}</div>
-                  <div style={{ fontSize:15, fontWeight:700, color:'#15151e' }}>{v}</div>
+
+          <div style={{ borderBottom:'1px solid var(--border)' }}>
+            <div style={{ maxWidth:1280, margin:'0 auto', display:'grid', gridTemplateColumns:'repeat(5,1fr)' }}>
+              {[['Motor','1.6L V6 Turbo Hybrid'],['Výkon','1000+ koní'],['Hmotnost','798 kg min.'],['Max RPM','15 000'],['0–100','~2.4 s']].map(([l,v],i) => (
+                <div key={l} style={{ padding:'16px', borderRight:i<4?'1px solid var(--border)':'none' }}>
+                  <div style={{ fontSize:8, fontWeight:600, letterSpacing:2, color:'var(--text3)', textTransform:'uppercase', marginBottom:4 }}>{l}</div>
+                  <div style={{ fontFamily:'var(--font-h)', fontSize:18, letterSpacing:1, color:'var(--text)' }}>{v}</div>
                 </div>
               ))}
             </div>
@@ -750,72 +721,66 @@ export default function F1Page() {
         </div>
       )}
 
-      {/* ═══════ CALENDAR ═══════ */}
+      {/* ════════ CALENDAR ════════ */}
       {tab === 'calendar' && (
-        <div style={{ maxWidth:1320, margin:'0 auto', padding:'56px 40px' }}>
-          <div style={{ borderLeft:'4px solid #e10600', paddingLeft:20, marginBottom:32 }}>
-            <div style={{ fontSize:9, letterSpacing:4, color:'#e10600', textTransform:'uppercase', fontWeight:700, marginBottom:4 }}>Sezóna {new Date().getFullYear()}</div>
-            <h2 style={{ fontSize:38, fontWeight:900, color:'#15151e', letterSpacing:-1 }}>KALENDÁŘ</h2>
+        <div style={{ maxWidth:1280, margin:'0 auto', padding:'48px 32px' }}>
+          <div style={{ display:'flex', alignItems:'baseline', gap:16, marginBottom:16 }}>
+            <h2 style={{ fontFamily:'var(--font-h)', fontSize:52, letterSpacing:2, color:'var(--text)' }}>KALENDÁŘ</h2>
+            <span style={{ fontSize:11, fontWeight:600, letterSpacing:2, color:'var(--red)', textTransform:'uppercase' }}>Sezóna {new Date().getFullYear()}</span>
           </div>
 
-          {loading ? (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))', gap:2 }}>
-              {Array(8).fill(0).map((_,i)=><div key={i} style={{ background:'#f9f9f9',padding:'22px 24px',height:140 }}><Skeleton h={32} w={32}/><div style={{height:8}}/><Skeleton h={22} w="70%"/></div>)}
+          {/* progress */}
+          <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:36 }}>
+            <div style={{ flex:1, maxWidth:400, height:2, background:'var(--s3)' }}>
+              <div style={{ height:'100%', width:`${Math.round((done.length/Math.max(total,1))*100)}%`, background:'var(--red)', transition:'width 1s' }} />
             </div>
-          ) : (
-            <>
-              <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:36 }}>
-                <div style={{ flex:1, maxWidth:480, height:4, background:'#e8e8e8', borderRadius:2 }}>
-                  <div style={{ height:'100%', borderRadius:2, width:`${Math.round((completedRaces.length/Math.max(totalRaces,1))*100)}%`, background:'#e10600', transition:'width 1s' }} />
-                </div>
-                <span style={{ fontSize:11, fontWeight:700, letterSpacing:2, color:'#aaa', textTransform:'uppercase' }}>{completedRaces.length} / {totalRaces} závodů</span>
-              </div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))', gap:2 }}>
-                {races.map(r=>(
-                  <div key={r.r} className="f1-rev" style={{ background:r.next?'#fff9f9':'#fff', border:`1px solid ${r.next?'#ffd0d0':'#e8e8e8'}`, borderLeft:`5px solid ${r.done?'#15151e':r.next?'#e10600':'#e0e0e0'}`, padding:'20px 22px', transition:'box-shadow .2s' }}
-                    onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.07)'}
-                    onMouseLeave={e=>e.currentTarget.style.boxShadow='none'}
-                  >
+            <span style={{ fontSize:10, fontWeight:600, letterSpacing:2, color:'var(--text3)', textTransform:'uppercase', whiteSpace:'nowrap' }}>{done.length} / {total} ZÁVODŮ</span>
+          </div>
+
+          {loading
+            ? <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:2}}>{Array(8).fill(0).map((_,i)=><div key={i} className="ske" style={{height:130}} />)}</div>
+            : <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:2 }}>
+                {races.map(r => (
+                  <div key={r.r} className={`rev rcard${r.next?' is-next':r.done?' is-done':''}`}>
                     <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:10 }}>
                       <span style={{ fontSize:28 }}>{r.flag}</span>
                       <div style={{ textAlign:'right' }}>
-                        <div style={{ fontSize:8, letterSpacing:3, color:'#aaa', textTransform:'uppercase', fontWeight:700 }}>Round {r.r}</div>
-                        <div style={{ fontSize:13, fontWeight:700, color:'#15151e' }}>{r.date}</div>
+                        <div style={{ fontSize:8, fontWeight:700, letterSpacing:3, color:'var(--text3)', textTransform:'uppercase' }}>ROUND {r.r}</div>
+                        <div style={{ fontFamily:'var(--font-h)', fontSize:16, letterSpacing:1, color:'var(--text)', marginTop:2 }}>{r.date}</div>
                       </div>
                     </div>
-                    <div style={{ fontSize:18, fontWeight:900, color:r.done?'#bbb':'#15151e', letterSpacing:.3, marginBottom:3 }}>{r.name} GP</div>
-                    {r.circuit && <div style={{ fontSize:10, color:'#ccc', marginBottom: (r.done||r.next)?10:0 }}>{r.circuit}</div>}
+                    <div style={{ fontFamily:'var(--font-h)', fontSize:20, letterSpacing:1, color: r.done ? 'var(--text2)' : 'var(--text)', marginBottom:3 }}>{r.name} GP</div>
+                    <div style={{ fontSize:10, color:'var(--text3)', marginBottom: (r.done||r.next) ? 10 : 0 }}>{r.circuit}</div>
                     {r.done && r.winner && (
                       <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                        <span style={{ fontSize:12 }}>🏆</span>
-                        <span style={{ fontSize:13, fontWeight:700, color:'#15151e' }}>{r.winner}</span>
-                        <span style={{ fontSize:10, color:getTeamColor(r.wTeam?.toLowerCase().replace(/ /g,'_')||''), fontWeight:700 }}>{r.wTeam}</span>
+                        <span style={{ fontSize:11 }}>🏆</span>
+                        <span style={{ fontSize:12, fontWeight:600, color:'var(--text2)' }}>{r.winner}</span>
+                        <span style={{ fontSize:10, fontWeight:700, color: tc(r.wId??''), letterSpacing:.5 }}>{r.wTeam}</span>
                       </div>
                     )}
                     {r.next && (
-                      <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'#e10600', padding:'4px 10px' }}>
-                        <span style={{ width:5, height:5, borderRadius:'50%', background:'#fff', animation:'f1-blink 1.5s ease infinite' }} />
-                        <span style={{ fontSize:8, fontWeight:700, letterSpacing:2, color:'#fff', textTransform:'uppercase' }}>Příští závod</span>
+                      <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'var(--red)', padding:'4px 10px', marginTop:4 }}>
+                        <span style={{ width:5,height:5,borderRadius:'50%',background:'#fff',animation:'blink 1.5s ease infinite' }} />
+                        <span style={{ fontSize:8, fontWeight:700, letterSpacing:2, color:'#fff', textTransform:'uppercase' }}>PŘÍŠTÍ ZÁVOD</span>
                       </div>
                     )}
                   </div>
                 ))}
               </div>
-            </>
-          )}
+          }
         </div>
       )}
 
-      {/* FOOTER */}
-      <footer style={{ marginTop:80, background:'#15151e', padding:'28px 40px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, flexWrap:'wrap' }}>
+      {/* ── FOOTER ── */}
+      <footer style={{ marginTop:80, padding:'24px 32px', borderTop:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ background:'#e10600', padding:'3px 8px' }}>
-            <span style={{ fontSize:12, fontWeight:900, color:'#fff' }}>F1</span>
+          <div style={{ background:'var(--red)', padding:'3px 8px' }}>
+            <span style={{ fontFamily:'var(--font-h)', fontSize:14, letterSpacing:1, color:'#fff' }}>F1</span>
           </div>
-          <span style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:'rgba(255,255,255,.3)', textTransform:'uppercase' }}>Formula One Tracker {new Date().getFullYear()}</span>
+          <span style={{ fontSize:10, fontWeight:600, letterSpacing:2, color:'var(--text3)', textTransform:'uppercase' }}>Formula One Tracker {new Date().getFullYear()}</span>
         </div>
-        <span style={{ fontSize:9, letterSpacing:2, color:'rgba(255,255,255,.15)', textTransform:'uppercase' }}>
-          Data: Jolpica API (Ergast) · {lastUpdated ? `Aktualizováno ${lastUpdated.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}` : 'Načítám…'} · Auto-refresh 60s
+        <span style={{ fontSize:9, fontWeight:500, letterSpacing:1.5, color:'var(--text3)', textTransform:'uppercase' }}>
+          Data: Jolpica API · Auto-refresh 60s{updated ? ` · Aktualizováno ${timeStr}` : ''}
         </span>
       </footer>
     </>
